@@ -175,23 +175,28 @@
   .checkout-btn:not(:disabled):active{transform:scale(.96)}
   .checkout-btn:not(:disabled){background:var(--accent)}
 
-  /* ===== 弹窗 ===== */
+  /* ===== 弹窗通用 ===== */
   .mask{
-    position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100;
-    display:flex; align-items:flex-end; justify-content:center;
+    position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:100;
+    display:flex; align-items:center; justify-content:center;
     opacity:0; pointer-events:none; transition:opacity .25s;
-    backdrop-filter:blur(4px);
+    backdrop-filter:blur(8px);
+    padding:20px;
   }
   .mask.show{opacity:1; pointer-events:auto}
+  
+  /* 结算弹窗 - 居中显示 */
   .sheet{
-    width:100%; max-width:480px; background:#fff;
-    border-radius:24px 24px 0 0;
-    padding:12px 24px calc(32px + env(safe-area-inset-bottom));
-    transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,.35,1);
-    max-height:92vh; overflow-y:auto;
-    box-shadow:0 -10px 40px rgba(0,0,0,.2);
+    width:100%; max-width:420px; background:#fff;
+    border-radius:24px;
+    padding:24px;
+    transform:scale(.9) translateY(20px); 
+    transition:transform .35s cubic-bezier(.32,.72,.35,1);
+    max-height:85vh; overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
   }
-  .mask.show .sheet{transform:translateY(0)}
+  .mask.show .sheet{transform:scale(1) translateY(0)}
+  
   .handle{width:40px; height:4px; background:#e4e4e7; border-radius:99px; margin:0 auto 20px}
   .sheet-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
   .sheet h2{font-size:20px; font-weight:800}
@@ -227,34 +232,44 @@
   .total-row .label{font-size:14px; color:var(--sub)}
   .total-row .value{font-size:32px; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums}
 
-  /* 二维码区域 */
+  /* 二维码区域 - 超大展示 */
   .qr-section{
     background:linear-gradient(135deg, #f0fdf4, #dcfce7);
-    border-radius:16px; padding:24px; text-align:center;
-    margin:16px 0;
+    border-radius:20px; padding:32px 24px; text-align:center;
+    margin:20px 0;
     border:2px dashed #86efac;
+    position:relative;
   }
   .qr-img{
-    width:180px; height:180px; border-radius:12px;
-    box-shadow:0 8px 24px rgba(0,0,0,.12);
+    width:280px; height:280px; max-width:100%; 
+    border-radius:16px;
+    box-shadow:0 12px 40px rgba(0,0,0,.15);
     display:block; margin:0 auto;
+    border:4px solid #fff;
   }
   .qr-amount{
-    font-size:36px; font-weight:800; color:#16a34a;
-    margin-top:16px; font-variant-numeric:tabular-nums;
+    font-size:42px; font-weight:800; color:#16a34a;
+    margin-top:20px; font-variant-numeric:tabular-nums;
+    text-shadow:0 2px 4px rgba(22,163,74,.1);
   }
-  .qr-label{font-size:13px; color:#166534; margin-top:4px; font-weight:500}
+  .qr-label{font-size:14px; color:#166534; margin-top:6px; font-weight:600}
+  .qr-hint{
+    margin-top:12px; font-size:12px; color:#15803d;
+    background:rgba(255,255,255,.8); padding:6px 12px;
+    border-radius:8px; display:inline-block;
+  }
 
   .pay-btn{
-    width:100%; padding:16px; border:none; border-radius:14px;
+    width:100%; padding:18px; border:none; border-radius:16px;
     background:linear-gradient(135deg, #22c55e, #16a34a);
-    color:#fff; font-size:16px; font-weight:700;
+    color:#fff; font-size:17px; font-weight:700;
     cursor:pointer; font-family:inherit;
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    box-shadow:0 4px 12px rgba(34,197,94,.3);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    box-shadow:0 6px 20px rgba(34,197,94,.35);
     transition:all .2s;
+    margin-top:8px;
   }
-  .pay-btn:active{transform:scale(.98); box-shadow:0 2px 6px rgba(34,197,94,.3)}
+  .pay-btn:active{transform:scale(.97); box-shadow:0 3px 10px rgba(34,197,94,.3)}
 
   /* 步骤弹窗 */
   .guide-content{padding:8px 0}
@@ -342,7 +357,7 @@
   </button>
 </div>
 
-<!-- 结算弹窗 -->
+<!-- 结算弹窗 - 居中显示，二维码超大 -->
 <div class="mask" id="checkoutMask" onclick="closeMask(event, 'checkoutMask')">
   <div class="sheet">
     <div class="handle"></div>
@@ -361,10 +376,12 @@
       <span class="value" id="finalAmount">¥0</span>
     </div>
 
+    <!-- 超大二维码展示区域 -->
     <div class="qr-section">
       <img class="qr-img" id="qrImage" alt="收款码">
       <div class="qr-amount" id="qrAmount">¥0</div>
       <div class="qr-label">微信扫码支付</div>
+      <div class="qr-hint">💡 长按识别或微信扫一扫</div>
     </div>
 
     <button class="pay-btn" onclick="confirmOrder()">
@@ -406,7 +423,7 @@
           <div class="step-desc">
             点击菜品卡片展开选项：<br>
             • <b>加蛋</b>：适用于煎蛋、蛋炒饭、葱油饼（+¥1/个）<br>
-            • <b>加生菜</b>：适用于葱油饼（+¥1.5/份）<br>
+            • <b>加生菜</b>：适用于葱油饼（+¥0.5/份）<br>
             默认为不加，直接点餐即可。
           </div>
         </div>
@@ -712,15 +729,18 @@ function openCheckout() {
   document.getElementById('qrImage').src = QR_CODE;
   
   document.getElementById('checkoutMask').classList.add('show');
+  document.body.style.overflow = 'hidden'; // 防止背景滚动
 }
 
 function openGuide() {
   document.getElementById('guideMask').classList.add('show');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeMask(e, id) {
   if (e && e.target !== document.getElementById(id)) return;
   document.getElementById(id).classList.remove('show');
+  document.body.style.overflow = ''; // 恢复滚动
 }
 
 /* ================= 提交订单 ================= */
@@ -760,6 +780,7 @@ function confirmOrder() {
   
   // 关闭弹窗
   document.getElementById('checkoutMask').classList.remove('show');
+  document.body.style.overflow = '';
   
   // 显示成功提示
   showToast('订单提交成功！');
