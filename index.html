@@ -385,8 +385,13 @@
     </div>
 
     <button class="pay-btn" onclick="confirmOrder()">
+    
       <span>✓</span> 我已完成支付，提交订单
+      
     </button>
+    <button class="pay-btn" style="background:linear-gradient(135deg, #3b82f6, #2563eb); box-shadow:0 6px 20px rgba(59,130,246,.35); margin-bottom:10px;" onclick="saveQRCode()">
+  <span>⬇️</span> 保存二维码到相册
+</button>
   </div>
 </div>
 
@@ -796,6 +801,22 @@ function showToast(text) {
 /* ================= 初始化 ================= */
 renderMenu();
 updateUI();
+
+function saveQRCode() {
+  const img = document.getElementById('qrImage');
+  if (!img || !img.src) {
+    showToast('二维码未加载');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = '收款码.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('二维码已保存');
+}
+
 </script>
 
 </body>
