@@ -1,0 +1,3873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>脚本商店</title></head>
+<body>
+
+  <div data-field="item-01" data-switch="on">
+    <h3 data-role="title">Fly</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  Fly.js  ——  Spire 脚本：裸飞行（不做任何绕过）
+ * =============================================================================
+ *
+ *  【这是什么】
+ *   最直白的一版飞行：每个 tick 直接改写玩家的 motionX / motionY / motionZ。
+ *   故意**不做任何反作弊对抗** —— 不改 onGround、不发假包、不动 timer、
+ *   不猜服务端校验、不做位置回滚。目的就是让你看清「裸改运动」在目标服务器上
+ *   到底会发生什么。
+ *
+ *  【为什么这样写能飞】
+ *   Spire 的 onUpdate 钩子挂在 EntityPlayerSP.onUpdate() 的 HEAD 上，
+ *   也就是一个 tick 里**最早**的位置 —— 早于 EntityLivingBase 施加重力
+ *   （原版顺序是 moveEntity(...) 之后才 motionY -= 0.08）和 moveEntity 本身。
+ *   所以在这里写 motionY = 0，本 tick 就真的不上下移动；
+ *   写 0.42 就是每 tick 上升 0.42 格（约 8.4 格/秒）。
+ *   水平方向同理：这里写进去的 motionX/motionZ 会被本 tick 的 moveEntity 直接用。
+ *
+ *  【为什么还要 onStrafe】
+ *   原版 moveEntityWithHeading 会先调 moveFlying(strafe, forward, friction)，
+ *   把按键输入**累加**到 motionX/motionZ 上。Spire 的 StrafeEvent 正好包住这次
+ *   moveFlying，把两个输入清零它就完全不生效 —— 这样水平速度才严格等于 Speed，
+ *   而不是「Speed + 输入那部分」。不需要精确控速就把 ExactSpeed 关掉。
+ *
+ *  【操作】
+ *   空格       上升
+ *   Shift      下降
+ *   都不按     悬停（把 Hover 关掉就是自由落体）
+ *   W/A/S/D    水平移动，方向 = 视角 + 输入合成（八向，和走路一致）
+ *
+ *  【已知会被怎么拦（这正是「无绕过」的意思）】
+ *   · 原版服务端用自己的移动校验比对坐标，超限就拉回并记 "moved wrongly"。
+ *   · 有反作弊（NCP / AAC / Matrix 之类）的服务器基本会立刻标记或踢。
+ *   · 单人 / 创造模式 / 允许飞行的服务器上应该直接生效。
+ *   想不被拦需要另外做绕过（对齐服务端预测、改 onGround、控包序……），
+ *   这个脚本一条都没做。
+ *
+ *  【放置位置】
+ *   .minecraft/config/Spire/script/Fly.js
+ *   然后游戏里执行 .script reload，ClickGUI → Script → Fly 打开（默认是关的）。
+ *
+ *  【语言】ES5（Nashorn）：不用 let / const / 箭头函数 / 模板字符串 / for..of。
+ */
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  1. 设置项（会出现在 ClickGUI 的 Script → Fly 下面，并随 config 存读）
+// ═══════════════════════════════════════════════════════════════════════════
+
+var S_HSPEED  = api.setting.number("Speed", 0.5, 0.05, 5.0);          // 水平 格/tick
+var S_VSPEED  = api.setting.number("VerticalSpeed", 0.42, 0.05, 2.0); // 垂直 格/tick
+var S_HOVER   = api.setting.bool("Hover", true);                      // 不按键时悬停
+var S_AUTO    = api.setting.bool("AutoForward", false);               // 不按键也朝视角飞
+var S_EXACT   = api.setting.bool("ExactSpeed", true);                 // 清空输入，速度精确
+var S_NOFALL  = api.setting.bool("ResetFallDistance", true);          // 每 tick 清坠落距离
+var S_HUD     = api.setting.bool("Hud", true);
+var S_HUD_X   = api.setting.number("HudX", 4.0, 0.0, 2000.0);
+var S_HUD_Y   = api.setting.number("HudY", 96.0, 0.0, 2000.0);
+var S_CHAT    = api.setting.bool("ChatOnToggle", true);
+var S_DEBUG   = api.setting.bool("Debug", false);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  2. 常量与状态
+// ═══════════════════════════════════════════════════════════════════════════
+
+// org.lwjgl.input.Keyboard 的键码
+var KEY_SPACE  = 57;
+var KEY_LSHIFT = 42;
+var KEY_RSHIFT = 54;
+
+var COLOR_BG     = 0x90000000;
+var COLOR_ACCENT = 0xFF55AAFF;
+var COLOR_TEXT   = 0xFFFFFFFF;
+var COLOR_DIM    = 0xFFAAAAAA;
+var COLOR_UP     = 0xFF55FF55;
+var COLOR_DOWN   = 0xFFFFAA00;
+var COLOR_WARN   = 0xFFFF5555;
+
+var state = {
+    ticks: 0,          // 本模块启用后跑了多少 tick
+    vMode: "悬停",
+    hMode: "静止",
+    lastV: 0.0,
+    startY: 0.0,
+    chatAt: 0
+};
+
+function str(v) {
+    return (v === null || v === undefined) ? "" : ("" + v);
+}
+
+function keyDown(code) {
+    return api.util.isKeyDown(code);
+}
+
+function shiftDown() {
+    return keyDown(KEY_LSHIFT) || keyDown(KEY_RSHIFT);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  3. 生命周期
+// ═══════════════════════════════════════════════════════════════════════════
+
+function onLoad() {
+    log("Fly 已装载（裸飞行，无绕过）");
+}
+
+function onEnable() {
+    state.ticks = 0;
+    state.vMode = "悬停";
+    state.hMode = "静止";
+    state.lastV = 0.0;
+    state.startY = api.player.exists() ? api.player.getY() : 0.0;
+    if (S_CHAT.getBool()) {
+        api.chat.info("Fly 开：空格上升 / Shift 下降 / 不按悬停"
+                + "  速度 " + S_HSPEED.getNumber());
+    }
+}
+
+function onDisable() {
+    state.ticks = 0;
+    if (S_CHAT.getBool()) {
+        api.chat.info("Fly 关");
+    }
+}
+
+// 换世界时清状态（这个钩子即使模块没开也会被调用）
+function onWorldLoad(event) {
+    state.ticks = 0;
+    state.vMode = "悬停";
+    state.hMode = "静止";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  4. 核心：每 tick 直接写运动
+// ═══════════════════════════════════════════════════════════════════════════
+
+function onUpdate(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    state.ticks++;
+
+    // ── 垂直 ─────────────────────────────────────────────────────────────
+    var up = keyDown(KEY_SPACE);
+    var down = shiftDown();
+    var vspeed = S_VSPEED.getNumber();
+    var vy;
+
+    if (up && !down) {
+        vy = vspeed;
+        state.vMode = "上升";
+    } else if (down && !up) {
+        vy = -vspeed;
+        state.vMode = "下降";
+    } else if (S_HOVER.getBool()) {
+        // 悬停：写 0 就真的不动。原版随后会 motionY -= 0.08，但下一 tick 又被这里覆盖。
+        vy = 0.0;
+        state.vMode = "悬停";
+    } else {
+        vy = -vspeed;
+        state.vMode = "自由落体";
+    }
+
+    api.player.setMotionY(vy);
+    state.lastV = vy;
+
+    // ── 水平 ─────────────────────────────────────────────────────────────
+    // 注意：不要用 api.move.isMoving()，MoveUtil.isMoving() 是个恒返回 false 的桩。
+    var forward = api.move.getForwardValue();   // W=+1 / S=-1
+    var strafe = api.move.getLeftValue();       // A=+1 / D=-1
+    var moving = (forward !== 0) || (strafe !== 0);
+    var hspeed = S_HSPEED.getNumber();
+
+    if (moving) {
+        // 八向合成：和走路一样，方向跟着视角 + 输入走
+        var yaw = api.move.adjustYaw(api.player.getYaw(), forward, strafe);
+        api.player.setSpeed(hspeed, yaw);
+        state.hMode = "移动";
+    } else if (S_AUTO.getBool()) {
+        api.player.setSpeed(hspeed, api.player.getYaw());
+        state.hMode = "自动前进";
+    } else {
+        api.player.setSpeed(0.0, api.player.getYaw());
+        state.hMode = "静止";
+    }
+
+    // ── 顺手清坠落距离（不是绕过，只是别让落地摔一下）───────────────────
+    if (S_NOFALL.getBool()) {
+        api.player.setFallDistance(0.0);
+    }
+
+    if (S_DEBUG.getBool() && state.ticks % 20 === 0) {
+        log("tick=" + state.ticks
+                + " v=" + state.vMode + "(" + vy + ")"
+                + " h=" + state.hMode
+                + " y=" + Math.round(api.player.getY()));
+    }
+}
+
+// 把原版按输入累加的那部分速度清掉 —— 水平速度才严格等于 Speed
+function onStrafe(event) {
+    if (!S_EXACT.getBool() || !api.player.exists()) {
+        return;
+    }
+    event.setStrafe(0.0);
+    event.setForward(0.0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  5. HUD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function colorOfVertical() {
+    if (state.vMode === "上升") { return COLOR_UP; }
+    if (state.vMode === "下降") { return COLOR_DOWN; }
+    if (state.vMode === "自由落体") { return COLOR_WARN; }
+    return COLOR_ACCENT;
+}
+
+function buildLines() {
+    var lines = [];
+    var p = api.player;
+
+    lines.push({ text: "Fly —— 裸飞行（无绕过）", color: COLOR_ACCENT });
+    lines.push({ text: "垂直: " + state.vMode
+            + "   " + (Math.round(state.lastV * 1000) / 1000), color: colorOfVertical() });
+    lines.push({ text: "水平: " + state.hMode
+            + "   " + S_HSPEED.getNumber() + " 格/tick"
+            + "   (" + (Math.round(S_HSPEED.getNumber() * 200) / 10) + " 格/秒)", color: COLOR_TEXT });
+    lines.push({ text: "高度: " + (Math.round(p.getY() * 10) / 10)
+            + "   离地: " + (Math.round(p.distanceToGround() * 10) / 10), color: COLOR_DIM });
+    lines.push({ text: "坐标: " + Math.round(p.getX()) + ", "
+            + Math.round(p.getY()) + ", " + Math.round(p.getZ()), color: COLOR_DIM });
+    lines.push({ text: "坠落距离: " + (Math.round(p.getFallDistance() * 10) / 10)
+            + "   已跑 " + state.ticks + " tick", color: COLOR_DIM });
+    lines.push({ text: "空格=上  Shift=下  WASD=平飞", color: COLOR_DIM });
+    return lines;
+}
+
+function drawHud() {
+    if (!S_HUD.getBool() || !api.player.exists()) {
+        return;
+    }
+    var lines = buildLines();
+    var x = S_HUD_X.getNumber();
+    var y = S_HUD_Y.getNumber();
+
+    var width = 0;
+    var i;
+    for (i = 0; i < lines.length; i++) {
+        var w = api.render.textWidth(lines[i].text);
+        if (w > width) { width = w; }
+    }
+    var lineHeight = api.render.textHeight() + 2;
+    var height = lines.length * lineHeight + 8;
+
+    api.render.rect(x, y, width + 8, height, COLOR_BG);
+    api.render.rect(x, y, width + 8, 1, COLOR_ACCENT);
+    for (i = 0; i < lines.length; i++) {
+        api.render.text(x + 4, y + 4 + i * lineHeight,
+                lines[i].text, lines[i].color, true);
+    }
+}
+
+function onRender2D() {
+    drawHud();
+}
+</p>
+  </div>
+
+  <div data-field="item-02" data-switch="on">
+    <h3 data-role="title">ChatFilter</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  ChatFilter.js  ——  聊天过滤
+ * =============================================================================
+ *  钩子: onChatReceive / onRender2D
+ *
+ *  【和 Spammer 的区别】Spammer 往外发，这个把收到的拦下来，方向相反。
+ *
+ *  【两条规则】
+ *   1. 关键词命中 → 拦（逗号分隔，大小写不敏感）
+ *   2. 同一句话在窗口内重复 N 次 → 从第 N 次开始拦
+ *   只处理 isChat() 的聊天栏消息，系统提示 / 动作栏一律放过。
+ */
+var S_WORDS  = api.setting.text("Words", "出售,代练,买挂,外挂,加群,刷币");
+var S_REPEAT = api.setting.bool("BlockRepeat", true);
+var S_COUNT  = api.setting.integer("RepeatCount", 3, 2, 10);
+var S_WINDOW = api.setting.number("RepeatWindowMs", 4000.0, 500.0, 30000.0);
+var S_FRIEND = api.setting.bool("IgnoreFriends", true);
+var S_NOTIFY = api.setting.bool("Notify", false);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 24.0, 0.0, 2000.0);
+
+// ── 视觉 ────────────────────────────────────────────────────────────────────
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+// ── 状态 ────────────────────────────────────────────────────────────────────
+var lastText = "";
+var lastAt = 0;
+var repeatCount = 0;
+var byWord = 0;
+var byRepeat = 0;
+var lastBlocked = "";
+
+function onEnable() {
+    lastText = "";
+    lastAt = 0;
+    repeatCount = 0;
+    byWord = 0;
+    byRepeat = 0;
+    lastBlocked = "";
+}
+
+function containsWord(lower) {
+    var words = ("" + S_WORDS.getValue()).split(",");
+    var i;
+    for (i = 0; i < words.length; i++) {
+        var word = words[i].replace(/^\s+|\s+$/g, "").toLowerCase();
+        if (word.length > 0 && lower.indexOf(word) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function onChatReceive(event) {
+    if (!event.isChat()) {
+        return;
+    }
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    var text = "" + message;
+    if (S_FRIEND.getBool() && api.friend.isFriend(text)) {
+        return;
+    }
+
+    if (containsWord(text.toLowerCase())) {
+        event.setCancelled(true);
+        byWord++;
+        lastBlocked = text;
+        if (S_NOTIFY.getBool()) {
+            api.chat.warn("已拦截: " + api.hud.trim(text, 120.0));
+        }
+        return;
+    }
+    if (!S_REPEAT.getBool()) {
+        return;
+    }
+    var now = api.util.time();
+    if (text === lastText && (now - lastAt) < S_WINDOW.getNumber()) {
+        repeatCount++;
+    } else {
+        repeatCount = 1;
+    }
+    lastText = text;
+    lastAt = now;
+    if (repeatCount >= S_COUNT.getValue()) {
+        event.setCancelled(true);
+        byRepeat++;
+        lastBlocked = text;
+    }
+}
+
+function onRender2D() {
+    var total = byWord + byRepeat;
+    if (total === 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 54.0;
+
+    card(x, y, w, h);
+    api.render.text(x + 7.0, y + 7.0, "Chat Filter", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, total + " 条", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    api.render.text(x + 7.0, y + 23.0, "关键词", C_TEXT, true);
+    api.hud.textRight(x + w - 7.0, y + 23.0, "" + byWord, C_TEXT, true);
+    api.render.text(x + 7.0, y + 34.0, "刷屏", C_TEXT, true);
+    api.hud.textRight(x + w - 7.0, y + 34.0, "" + byRepeat, C_TEXT, true);
+
+    if (lastBlocked.length > 0) {
+        api.render.text(x + 7.0, y + 45.0,
+                api.hud.trim(lastBlocked, w - 14.0), C_BAD, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-03" data-switch="on">
+    <h3 data-role="title">AutoReply</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  AutoReply.js  ——  私聊自动回复
+ * =============================================================================
+ *  钩子: onChatReceive / onRender2D
+ *
+ *  【识别】"Steve -> 我: hi" / "[Steve -> me] hi" / "Steve whispers to you: hi"
+ *  统一取 "->" 或 "whispers to you" 左边的最后一段当发信人，认不出就跳过。
+ *
+ *  【发包】api.chat.send 只是本地打印；真正发到服务端要用 api.chat.message()。
+ */
+var S_REPLY  = api.setting.text("Reply", "我在忙，稍后回你");
+var S_COOL   = api.setting.number("CooldownMs", 15000.0, 1000.0, 120000.0);
+var S_KEY    = api.setting.text("Keyword", "");
+var S_IGNORE = api.setting.bool("IgnoreFriends", false);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 84.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lastAt = 0;
+var sent = 0;
+var lastSender = "-";
+
+function onEnable() {
+    lastAt = 0;
+    sent = 0;
+    lastSender = "-";
+}
+
+function senderOf(text) {
+    var markers = [" -> ", " whispers to you", " 悄悄话"];
+    var i;
+    for (i = 0; i < markers.length; i++) {
+        var index = text.indexOf(markers[i]);
+        if (index > 0) {
+            var head = text.substring(0, index).replace(/^\[/, "").replace(/\s+$/, "");
+            var parts = head.split(" ");
+            return parts[parts.length - 1];
+        }
+    }
+    return "";
+}
+
+function onChatReceive(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    var text = "" + message;
+    var sender = senderOf(text);
+    if (sender.length === 0 || sender === api.player.getName()) {
+        return;
+    }
+    if (S_IGNORE.getBool() && api.friend.isFriend(sender)) {
+        return;
+    }
+    var keyword = ("" + S_KEY.getValue()).toLowerCase();
+    if (keyword.length > 0 && text.toLowerCase().indexOf(keyword) < 0) {
+        return;
+    }
+    var now = api.util.time();
+    if ((now - lastAt) < S_COOL.getNumber()) {
+        return;
+    }
+    lastAt = now;
+    sent++;
+    lastSender = sender;
+    api.chat.message("/msg " + sender + " " + S_REPLY.getValue());
+}
+
+function onRender2D() {
+    if (sent === 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 46.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Auto Reply", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, sent + " 次", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    api.render.text(x + 7.0, y + 23.0, "对象", C_SUB, true);
+    api.render.text(x + 33.0, y + 23.0, api.hud.trim(lastSender, w - 40.0), C_TEXT, true);
+
+    var elapsed = api.util.time() - lastAt;
+    var progress = 1.0 - (elapsed / S_COOL.getNumber());
+    if (progress < 0.0) { progress = 0.0; }
+    api.hud.progressBar(x + 7.0, y + 35.0, w - 14.0, 3.0, progress, C_TRACK, C_ACCENT);
+}
+</p>
+  </div>
+
+  <div data-field="item-04" data-switch="on">
+    <h3 data-role="title">DeathCoords</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  DeathCoords.js  ——  死亡点导航
+ * =============================================================================
+ *  钩子: onHealthUpdate / onRender2D
+ *
+ *  死亡瞬间把坐标写进 api.store（跨会话保留），之后一直显示「离上次死亡点多远、
+ *  该往哪转」。方向用三角箭头指示，不用自己读文字。
+ */
+var S_HUD    = api.setting.bool("Hud", true);
+var S_NOTIFY = api.setting.bool("NotifyOnDeath", true);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 132.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFF87171;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var hasDeath = false;
+var dx = 0.0;
+var dy = 0.0;
+var dz = 0.0;
+var deathAt = 0;
+
+function onEnable() {
+    dx = api.store.getNumber("death.x", 0.0);
+    dy = api.store.getNumber("death.y", 0.0);
+    dz = api.store.getNumber("death.z", 0.0);
+    deathAt = api.store.getInt("death.time", 0);
+    hasDeath = api.store.getBool("death.exists", false);
+}
+
+function onHealthUpdate(event) {
+    if (!event.isDead() || !api.player.exists()) {
+        return;
+    }
+    dx = api.player.getX();
+    dy = api.player.getY();
+    dz = api.player.getZ();
+    deathAt = api.util.time();
+    hasDeath = true;
+    api.store.set("death.x", "" + dx);
+    api.store.set("death.y", "" + dy);
+    api.store.set("death.z", "" + dz);
+    api.store.set("death.time", "" + deathAt);
+    api.store.set("death.exists", "true");
+    if (S_NOTIFY.getBool()) {
+        api.chat.error("死亡点: " + Math.round(dx) + ", " + Math.round(dy) + ", " + Math.round(dz));
+    }
+}
+
+function bearing() {
+    var vx = dx - api.player.getX();
+    var vz = dz - api.player.getZ();
+    var angle = Math.atan2(-vx, vz) * 180.0 / Math.PI;
+    var relative = angle - api.player.getYaw();
+    while (relative > 180.0) { relative -= 360.0; }
+    while (relative < -180.0) { relative += 360.0; }
+    return relative;
+}
+
+function onRender2D() {
+    if (!S_HUD.getBool() || !hasDeath || !api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 54.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Death Point", C_ACCENT, true);
+    var ago = Math.round((api.util.time() - deathAt) / 1000.0);
+    api.hud.textRight(x + w - 7.0, y + 7.0, ago + "s 前", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var coords = Math.round(dx) + " " + Math.round(dy) + " " + Math.round(dz);
+    api.render.textScaled(x + 7.0, y + 23.0, coords, C_TEXT, 1.05, true);
+
+    var distance = api.player.distanceTo(dx, dy, dz);
+    api.render.text(x + 7.0, y + 37.0, (Math.round(distance * 10) / 10) + "m", C_TEXT, true);
+
+    // 方向箭头：指向死亡点的相对方位
+    api.render.triangle(x + w - 18.0, y + 42.0, bearing() - 90.0, 7.0, C_ACCENT);
+    api.render.text(x + 7.0, y + 45.0, "往箭头方向走", C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-05" data-switch="on">
+    <h3 data-role="title">PlayerTracker</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  PlayerTracker.js  ——  玩家最后位置
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  ESP 只画当前看得见的，Tracers 只画线；这个记「刚才那个人去哪了」。
+ *  每 SampleTicks 采样一次，HUD 按新鲜度排序。
+ */
+var S_SAMPLE = api.setting.integer("SampleTicks", 100, 20, 400);
+var S_RANGE  = api.setting.number("Range", 64.0, 8.0, 256.0);
+var S_SHOW   = api.setting.integer("MaxShow", 5, 1, 15);
+var S_STALE  = api.setting.number("StaleSeconds", 60.0, 10.0, 600.0);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 196.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var seen = {};
+var ticks = 0;
+
+function onEnable() {
+    seen = {};
+    ticks = 0;
+}
+
+function onWorldLoad(event) {
+    seen = {};
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % S_SAMPLE.getValue() !== 0) {
+        return;
+    }
+    var players = api.entity.getPlayers();
+    var i;
+    for (i = 0; i < players.size(); i++) {
+        var player = players.get(i);
+        if (player === null || !player.isValid() || player.isSelf()) {
+            continue;
+        }
+        var distance = player.getDistanceToPlayer();
+        if (distance > S_RANGE.getNumber()) {
+            continue;
+        }
+        seen[player.getName()] = {
+            x: player.getX(), y: player.getY(), z: player.getZ(), at: api.util.time()
+        };
+    }
+}
+
+function collect() {
+    var rows = [];
+    var name;
+    for (name in seen) {
+        if (!seen.hasOwnProperty(name)) {
+            continue;
+        }
+        var entry = seen[name];
+        var age = (api.util.time() - entry.at) / 1000.0;
+        if (age > S_STALE.getNumber()) {
+            continue;
+        }
+        rows.push({ name: name, age: age, x: entry.x, y: entry.y, z: entry.z });
+    }
+    rows.sort(function (a, b) { return a.age - b.age; });
+    return rows;
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var rows = collect();
+    if (rows.length === 0) {
+        return;
+    }
+    var limit = Math.min(rows.length, S_SHOW.getValue());
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 196.0;
+    var h = 22.0 + limit * 11.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Tracker", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 人", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var i;
+    for (i = 0; i < limit; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 11.0;
+        api.render.text(x + 7.0, rowY, api.hud.trim(row.name, 60.0), C_TEXT, true);
+        api.render.text(x + 70.0, rowY,
+                Math.round(row.x) + " " + Math.round(row.y) + " " + Math.round(row.z), C_SUB, true);
+        api.hud.textRight(x + w - 7.0, rowY, Math.round(row.age) + "s", C_SUB, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-06" data-switch="on">
+    <h3 data-role="title">KillFeed</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  KillFeed.js  ——  击杀播报
+ * =============================================================================
+ *  钩子: onChatReceive / onRender2D
+ *
+ *  Notification 只播模块开关，不解析聊天；这个从聊天里挑出「谁杀了谁」。
+ *  各服格式差异大，所以用关键词包含判定，宁可多抓不可漏抓。
+ */
+var S_KEYWORDS = api.setting.text("Keywords", "was slain by,was shot by,was killed by,被,击杀,死于");
+var S_LIMIT    = api.setting.integer("MaxLines", 5, 1, 12);
+var S_LIFE     = api.setting.number("LifeSeconds", 20.0, 3.0, 120.0);
+var S_X        = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y        = api.setting.number("Y", 280.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFFF8844;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var feed = [];
+
+function onEnable() {
+    feed = [];
+}
+
+function matches(lower) {
+    var parts = ("" + S_KEYWORDS.getValue()).split(",");
+    var i;
+    for (i = 0; i < parts.length; i++) {
+        var word = parts[i].replace(/^\s+|\s+$/g, "").toLowerCase();
+        if (word.length > 0 && lower.indexOf(word) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function onChatReceive(event) {
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    var text = "" + message;
+    if (!matches(text.toLowerCase())) {
+        return;
+    }
+    feed.push({ text: text, at: api.util.time() });
+    while (feed.length > S_LIMIT.getValue()) {
+        feed.shift();
+    }
+}
+
+function onRender2D() {
+    if (feed.length === 0) {
+        return;
+    }
+    var now = api.util.time();
+    var alive = [];
+    var i;
+    for (i = 0; i < feed.length; i++) {
+        var age = (now - feed[i].at) / 1000.0;
+        if (age <= S_LIFE.getNumber()) {
+            alive.push({ text: feed[i].text, fade: 1.0 - age / S_LIFE.getNumber() });
+        }
+    }
+    if (alive.length === 0) {
+        return;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 210.0;
+    var h = 22.0 + alive.length * 11.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Kill Feed", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, alive.length + "", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    for (i = 0; i < alive.length; i++) {
+        var rowY = y + 23.0 + i * 11.0;
+        // 左侧 2px 渐隐色条
+        api.render.roundedRect(x + 7.0, rowY, 2.0, 8.0, 1.0,
+                api.color.withAlpha(C_ACCENT, Math.round(120 + 135 * alive[i].fade)));
+        api.render.text(x + 12.0, rowY,
+                api.hud.trim(alive[i].text, w - 22.0), C_TEXT, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-07" data-switch="on">
+    <h3 data-role="title">TabPing</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  TabPing.js  ——  Tab 延迟榜
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  Tab 覆盖层只有原版的信号格；这里把延迟排成榜，右侧配一条延迟条。
+ *  数据来自客户端已收到的 player info，不发包。
+ */
+var S_SHOW  = api.setting.integer("MaxShow", 8, 1, 20);
+var S_ORDER = api.setting.mode("Order", "Lowest", "Lowest,Highest");
+var S_HIDE  = api.setting.integer("HideAbove", 999, 0, 999);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 360.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var rows = [];
+var ticks = 0;
+
+function onEnable() {
+    rows = [];
+    ticks = 0;
+}
+
+function pingColor(ping) {
+    if (ping <= 60) { return C_GOOD; }
+    if (ping <= 150) { return C_WARN; }
+    if (ping <= 300) { return 0xFFFFAA00; }
+    return C_BAD;
+}
+
+function refresh() {
+    var names = api.tab.players();
+    var list = [];
+    var i;
+    for (i = 0; i < names.size(); i++) {
+        var name = "" + names.get(i);
+        var ping = api.tab.ping(name);
+        if (ping < 0 || ping > S_HIDE.getValue()) {
+            continue;
+        }
+        list.push({ name: name, ping: ping });
+    }
+    if (S_ORDER.isMode("Lowest")) {
+        list.sort(function (a, b) { return a.ping - b.ping; });
+    } else {
+        list.sort(function (a, b) { return b.ping - a.ping; });
+    }
+    rows = list;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % 20 === 0) {
+        refresh();
+    }
+}
+
+function onRender2D() {
+    if (rows.length === 0) {
+        return;
+    }
+    var limit = Math.min(rows.length, S_SHOW.getValue());
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 22.0 + limit * 11.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Ping", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 人", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var i;
+    for (i = 0; i < limit; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 11.0;
+        api.render.text(x + 7.0, rowY, api.hud.trim(row.name, 64.0), C_TEXT, true);
+
+        var barX = x + 80.0;
+        var barW = 50.0;
+        var progress = 1.0 - Math.min(1.0, row.ping / 400.0);
+        api.hud.progressBar(barX, rowY + 3.0, barW, 3.0, progress, C_TRACK, pingColor(row.ping));
+        api.hud.textRight(x + w - 7.0, rowY, row.ping + "", pingColor(row.ping), true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-08" data-switch="on">
+    <h3 data-role="title">FriendAlert</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  FriendAlert.js  ——  好友在线面板
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  好友名单本身有（.friend），但没有模块告诉你「谁在线、在线多久」。
+ *  这里把好友做成一个常驻小面板：绿点=在线、灰点=离线，右侧是上线时长。
+ *  上下线时还会播报一次（可关）。
+ */
+var S_POLL  = api.setting.integer("PollTicks", 40, 10, 200);
+var S_CHAT  = api.setting.bool("Chat", true);
+var S_SOUND = api.setting.bool("Sound", true);
+var S_SHOW_OFFLINE = api.setting.bool("ShowOffline", true);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 300.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_GOOD   = 0xFF4ADE80;
+var C_OFF    = 0xFF5A5A66;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var online = {};
+var since = {};
+var ready = false;
+var ticks = 0;
+
+function onEnable() {
+    online = {};
+    since = {};
+    ready = false;
+    ticks = 0;
+}
+
+function onWorldLoad(event) {
+    online = {};
+    since = {};
+    ready = false;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % S_POLL.getValue() !== 0) {
+        return;
+    }
+
+    var names = api.tab.players();
+    var current = {};
+    var i;
+    for (i = 0; i < names.size(); i++) {
+        current["" + names.get(i)] = true;
+    }
+
+    if (!ready) {
+        online = current;
+        ready = true;
+        return;
+    }
+
+    var friends = api.friend.list();
+    var now = api.util.time();
+    var j;
+    for (j = 0; j < friends.size(); j++) {
+        var friend = "" + friends.get(j);
+        var was = online[friend] === true;
+        var is = current[friend] === true;
+        if (is && !was) {
+            since[friend] = now;
+            announce(friend, true);
+        } else if (!is && was) {
+            since[friend] = 0;
+            announce(friend, false);
+        }
+    }
+    online = current;
+}
+
+function announce(name, joined) {
+    if (S_CHAT.getBool()) {
+        if (joined) {
+            api.chat.success("好友上线: " + name);
+        } else {
+            api.chat.warn("好友下线: " + name);
+        }
+    }
+    if (S_SOUND.getBool()) {
+        api.sound.play(joined ? "random.levelup" : "random.orb", 0.5, 1.2);
+    }
+}
+
+function duration(ms) {
+    var seconds = Math.floor(ms / 1000.0);
+    if (seconds < 60) {
+        return seconds + "s";
+    }
+    var minutes = Math.floor(seconds / 60.0);
+    if (minutes < 60) {
+        return minutes + "m";
+    }
+    return Math.floor(minutes / 60.0) + "h";
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var friends = api.friend.list();
+    if (friends.size() === 0) {
+        return;
+    }
+
+    var rows = [];
+    var i;
+    for (i = 0; i < friends.size(); i++) {
+        var name = "" + friends.get(i);
+        var isOnline = online[name] === true;
+        if (!isOnline && !S_SHOW_OFFLINE.getBool()) {
+            continue;
+        }
+        rows.push({ name: name, online: isOnline });
+    }
+    if (rows.length === 0) {
+        return;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 150.0;
+    var h = 22.0 + rows.length * 11.0 + 6.0;
+    card(x, y, w, h);
+
+    var count = 0;
+    for (i = 0; i < rows.length; i++) {
+        if (rows[i].online) {
+            count++;
+        }
+    }
+    api.render.text(x + 7.0, y + 7.0, "Friends", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, count + "/" + rows.length, C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var now = api.util.time();
+    for (i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 11.0;
+        api.render.circle(x + 10.0, rowY + 4.0, 2.0, row.online ? C_GOOD : C_OFF);
+        api.render.text(x + 16.0, rowY, api.hud.trim(row.name, 70.0),
+                row.online ? C_TEXT : C_SUB, true);
+        if (row.online) {
+            var startedAt = since[row.name];
+            var text = (startedAt === undefined || startedAt === 0)
+                    ? "在线" : duration(now - startedAt);
+            api.hud.textRight(x + w - 7.0, rowY, text, C_GOOD, true);
+        } else {
+            api.hud.textRight(x + w - 7.0, rowY, "离线", C_OFF, true);
+        }
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-09" data-switch="on">
+    <h3 data-role="title">CompassHUD</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  CompassHUD.js  ——  罗盘
+ * =============================================================================
+ *  钩子: onRender2D
+ *
+ *  F3 有朝向数字但没有「到某点多远」，Tracers 画的是实体线。
+ *  这里画一个真罗盘：环 + 北向标记（跟着视角转）+ 中心指向箭头，
+ *  下面两行给到原点 / 到死亡点的距离。
+ */
+var S_SHOW_ORIGIN = api.setting.bool("ShowOrigin", true);
+var S_SHOW_DEATH  = api.setting.bool("ShowDeath", true);
+var S_SIZE        = api.setting.number("Size", 40.0, 28.0, 80.0);
+var S_X           = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y           = api.setting.number("Y", 24.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_DIAL   = 0x1AFFFFFF;
+var C_NORTH  = 0xFFF87171;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var NAMES = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"];
+
+function directionName(yaw) {
+    var n = yaw % 360.0;
+    if (n < 0) { n += 360.0; }
+    return NAMES[Math.round(n / 45.0) % 8];
+}
+
+function normalize(yaw) {
+    var n = yaw % 360.0;
+    return n < 0 ? n + 360.0 : n;
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 34.0 + S_SIZE.getNumber() + 26.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Compass", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0,
+            directionName(api.player.getYaw()) + " " + Math.round(normalize(api.player.getYaw())) + "°",
+            C_SUB, true);
+
+    var cx = x + w / 2.0;
+    var cy = y + 34.0 + S_SIZE.getNumber() / 2.0;
+    var radius = S_SIZE.getNumber() / 2.0;
+
+    api.render.circle(cx, cy, radius, C_DIAL);
+    api.render.ring(cx, cy, radius, 1.0, C_BORDER);
+
+    // 北向标记：世界北 = yaw 180，所以屏幕角度 = 180 - yaw
+    var northAngle = (180.0 - api.player.getYaw()) * Math.PI / 180.0;
+    var nx = cx + Math.sin(northAngle) * (radius - 5.0);
+    var ny = cy - Math.cos(northAngle) * (radius - 5.0);
+    api.render.circle(nx, ny, 2.0, C_NORTH);
+    api.render.text(nx - 2.0, ny - 10.0, "N", C_NORTH, true);
+
+    // 中心箭头 = 当前朝向
+    api.render.triangle(cx, cy, 0.0, 7.0, C_ACCENT);
+
+    var infoY = y + 34.0 + S_SIZE.getNumber() + 4.0;
+    if (S_SHOW_ORIGIN.getBool()) {
+        var origin = api.player.distanceTo(0.0, api.player.getY(), 0.0);
+        api.render.text(x + 7.0, infoY, "原点", C_SUB, true);
+        api.hud.textRight(x + w / 2.0 - 4.0, infoY,
+                (Math.round(origin * 10) / 10) + "m", C_TEXT, true);
+    }
+    if (S_SHOW_DEATH.getBool() && api.store.getBool("death.exists", false)) {
+        var dx = api.store.getNumber("death.x", 0.0);
+        var dy = api.store.getNumber("death.y", 0.0);
+        var dz = api.store.getNumber("death.z", 0.0);
+        api.render.text(x + w / 2.0 + 4.0, infoY, "死亡", C_SUB, true);
+        api.hud.textRight(x + w - 7.0, infoY,
+                (Math.round(api.player.distanceTo(dx, dy, dz) * 10) / 10) + "m", C_TEXT, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-10" data-switch="on">
+    <h3 data-role="title">CommandShortcuts</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  CommandShortcuts.js  ——  快捷命令
+ * =============================================================================
+ *  钩子: onKey / onRender2D
+ *
+ *  Spammer 是定时重复发；这个是「按一个键发一条命令」。
+ *  api.chat.send 只是本地打印，真正发包要用 api.chat.message()。
+ *  面板把三个键位和对应命令摆出来，不用记。
+ */
+var S_KEY1 = api.setting.integer("Key1", 59, 0, 255);
+var S_CMD1 = api.setting.text("Cmd1", "/spawn");
+var S_KEY2 = api.setting.integer("Key2", 60, 0, 255);
+var S_CMD2 = api.setting.text("Cmd2", "/home");
+var S_KEY3 = api.setting.integer("Key3", 61, 0, 255);
+var S_CMD3 = api.setting.text("Cmd3", "/kit pvp");
+var S_SHOW = api.setting.bool("ShowPanel", true);
+var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y    = api.setting.number("Y", 380.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var flashAt = 0;
+var flashText = "";
+
+function onKey(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var key = event.getKey();
+    var command = "";
+    if (key === S_KEY1.getValue()) {
+        command = "" + S_CMD1.getValue();
+    } else if (key === S_KEY2.getValue()) {
+        command = "" + S_CMD2.getValue();
+    } else if (key === S_KEY3.getValue()) {
+        command = "" + S_CMD3.getValue();
+    }
+    if (command.length === 0) {
+        return;
+    }
+    api.chat.message(command);
+    flashAt = api.util.time();
+    flashText = command;
+}
+
+function onRender2D() {
+    if (!S_SHOW.getBool() || !api.player.exists()) {
+        return;
+    }
+    var rows = [
+        { key: S_KEY1.getValue(), cmd: "" + S_CMD1.getValue() },
+        { key: S_KEY2.getValue(), cmd: "" + S_CMD2.getValue() },
+        { key: S_KEY3.getValue(), cmd: "" + S_CMD3.getValue() }
+    ];
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 22.0 + rows.length * 16.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Shortcuts", C_ACCENT, true);
+    var recent = (api.util.time() - flashAt) < 1500.0;
+    if (recent) {
+        api.hud.textRight(x + w - 7.0, y + 7.0, "已发送", 0xFF4ADE80, true);
+    }
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var i;
+    for (i = 0; i < rows.length; i++) {
+        var rowY = y + 23.0 + i * 16.0;
+        var pressed = recent && ("" + flashText) === rows[i].cmd;
+        api.hud.keyCap(x + 7.0, rowY, 30.0, 13.0,
+                api.util.getKeyName(rows[i].key), pressed, C_ACCENT);
+        api.render.text(x + 43.0, rowY + 2.0, api.hud.trim(rows[i].cmd, w - 52.0), C_TEXT, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-11" data-switch="on">
+    <h3 data-role="title">LagMonitor</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  LagMonitor.js  ——  卡顿监控
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  没有模块测 tick 间隔。FPS 高不代表不卡 —— 某一 tick 卡 200ms，
+ *  移动和攻击都会被拖一下。这里测真实 tick 间隔，并画一条迷你折线。
+ */
+var S_WINDOW = api.setting.integer("Window", 100, 20, 400);
+var S_SPIKE  = api.setting.number("SpikeMs", 80.0, 20.0, 500.0);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 420.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var samples = [];
+var lastAt = 0;
+var spikes = 0;
+var peak = 0.0;
+var avg = 0.0;
+
+function onEnable() {
+    samples = [];
+    lastAt = 0;
+    spikes = 0;
+    peak = 0.0;
+    avg = 0.0;
+}
+
+function onTick() {
+    var now = api.util.time();
+    if (lastAt > 0) {
+        var delta = now - lastAt;
+        // 进服 / 切维度会有几秒的假卡顿，超过 1 秒的样本直接丢弃
+        if (delta > 0 && delta < 1000) {
+            samples.push(delta);
+            if (delta > peak) {
+                peak = delta;
+            }
+            if (delta > S_SPIKE.getNumber()) {
+                spikes++;
+            }
+            while (samples.length > S_WINDOW.getValue()) {
+                samples.shift();
+            }
+            var sum = 0;
+            var i;
+            for (i = 0; i < samples.length; i++) {
+                sum += samples[i];
+            }
+            avg = samples.length === 0 ? 0.0 : sum / samples.length;
+        }
+    }
+    lastAt = now;
+}
+
+function colorFor(value) {
+    if (value <= 55.0) { return C_GOOD; }
+    if (value <= 80.0) { return C_WARN; }
+    return C_BAD;
+}
+
+function onRender2D() {
+    if (samples.length === 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 54.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Lag", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, "峰值 " + (Math.round(peak * 10) / 10) + "ms", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var tps = avg > 0 ? (1000.0 / avg) : 0.0;
+    api.render.textScaled(x + 7.0, y + 22.0, (Math.round(tps * 10) / 10) + "", colorFor(avg), 1.5, true);
+    api.render.text(x + 46.0, y + 30.0, "tps", C_SUB, true);
+    api.render.text(x + 62.0, y + 30.0, (Math.round(avg * 10) / 10) + "ms", C_TEXT, true);
+
+    // 迷你折线：最近 32 个样本，纵轴 0..120ms
+    var count = Math.min(samples.length, 32);
+    var start = samples.length - count;
+    var graphX = x + 100.0;
+    var graphW = w - 107.0;
+    var graphY = y + 24.0;
+    var graphH = 22.0;
+    var step = graphW / 31.0;
+    var prevX = 0.0;
+    var prevY = 0.0;
+    var i;
+    for (i = 0; i < count; i++) {
+        var value = samples[start + i];
+        if (value > 120.0) { value = 120.0; }
+        var px = graphX + i * step;
+        var py = graphY + graphH - (value / 120.0) * graphH;
+        if (i > 0) {
+            api.render.line(prevX, prevY, px, py, 1.0, colorFor(samples[start + i]));
+        }
+        prevX = px;
+        prevY = py;
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-12" data-switch="on">
+    <h3 data-role="title">ServerInfo</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  ServerInfo.js  ——  服务器信息
+ * =============================================================================
+ *  钩子: onRender2D
+ *
+ *  F3 / Tab 都不给「motd + 人数 + 维度 + 难度」的组合视图。
+ *  motd 先去颜色码再按像素截断，不会把面板撑爆。
+ */
+var S_MOTD  = api.setting.bool("ShowMotd", true);
+var S_COUNT = api.setting.bool("ShowPlayers", true);
+var S_PING  = api.setting.bool("ShowPing", true);
+var S_WORLD = api.setting.bool("ShowWorld", true);
+var S_MAXW  = api.setting.number("MaxWidth", 200.0, 80.0, 600.0);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 460.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_CHIP   = 0x1AFFFFFF;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+function stripColors(text) {
+    if (text === null || text === undefined) {
+        return "";
+    }
+    return ("" + text).replace(/§./g, "").replace(/[\r\n]+/g, " ");
+}
+
+function dimensionName(id) {
+    if (id === 0) { return "主世界"; }
+    if (id === -1) { return "下界"; }
+    if (id === 1) { return "末地"; }
+    return "维度" + id;
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = S_MAXW.getNumber() + 20.0;
+
+    var motd = S_MOTD.getBool() ? stripColors(api.server.getMotd()) : "";
+    var hasMotd = motd.length > 0;
+    var h = 22.0 + (hasMotd ? 11.0 : 0.0) + (S_COUNT.getBool() ? 16.0 : 0.0) + 17.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Server", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, api.server.getIp(), C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    var cursor = y + 23.0;
+    if (hasMotd) {
+        api.render.text(x + 7.0, cursor, api.hud.trim(motd, w - 14.0), C_TEXT, true);
+        cursor += 11.0;
+    }
+    if (S_COUNT.getBool()) {
+        var current = api.server.getPlayerCount();
+        var max = api.server.getMaxPlayers();
+        api.render.text(x + 7.0, cursor, "人数", C_SUB, true);
+        api.hud.textRight(x + w - 7.0, cursor, current + "/" + max, C_TEXT, true);
+        cursor += 10.0;
+        var progress = max <= 0 ? 0.0 : (current / max);
+        api.hud.progressBar(x + 7.0, cursor, w - 14.0, 3.0, progress, C_TRACK, C_ACCENT);
+        cursor += 7.0;
+    }
+
+    if (S_PING.getBool()) {
+        api.hud.chip(x + 7.0, cursor, api.player.getPing() + "ms", C_CHIP, C_TEXT);
+    }
+    if (S_WORLD.getBool()) {
+        api.hud.chip(x + 52.0, cursor, dimensionName(api.server.getDimension()), C_CHIP, C_TEXT);
+        api.hud.chip(x + 112.0, cursor, api.server.getDifficulty(), C_CHIP, C_SUB);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-13" data-switch="on">
+    <h3 data-role="title">DurabilityAlert</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  DurabilityAlert.js  ——  耐久警报
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  HUD 只是「一直显示耐久」，这个只在「有东西快断了」时才弹出来：
+ *  主手 + 四件护甲，每件一条进度条，低于阈值还会响一声。
+ */
+var S_WARN   = api.setting.number("WarnPercent", 25.0, 1.0, 90.0);
+var S_DANGER = api.setting.number("DangerPercent", 10.0, 1.0, 50.0);
+var S_CHAT   = api.setting.bool("Chat", true);
+var S_SOUND  = api.setting.bool("Sound", true);
+var S_COOL   = api.setting.number("CooldownMs", 4000.0, 500.0, 30000.0);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 500.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFFBBF24;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lastStage = {};
+var lastAt = 0;
+
+function onEnable() {
+    lastStage = {};
+    lastAt = 0;
+}
+
+function colorFor(percent) {
+    if (percent <= S_DANGER.getNumber()) { return C_BAD; }
+    if (percent <= S_WARN.getNumber()) { return C_WARN; }
+    return C_GOOD;
+}
+
+function collect() {
+    var rows = [];
+    var held = api.item.getHeld();
+    if (held !== null && held.isValid() && held.getMaxDamage() > 0) {
+        rows.push({ label: "主手", percent: held.getDurabilityPercent() });
+    }
+    var names = ["靴子", "护腿", "胸甲", "头盔"];
+    var i;
+    for (i = 0; i < 4; i++) {
+        var stack = api.inventory.getArmorStack(i);
+        if (stack !== null && stack.isValid() && stack.getMaxDamage() > 0) {
+            rows.push({ label: names[i], percent: stack.getDurabilityPercent() });
+        }
+    }
+    return rows;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var rows = collect();
+    var i;
+    for (i = 0; i < rows.length; i++) {
+        var percent = rows[i].percent;
+        var stage = percent <= S_DANGER.getNumber() ? 2
+                : (percent <= S_WARN.getNumber() ? 1 : 0);
+        var previous = lastStage[rows[i].label] === undefined ? 0 : lastStage[rows[i].label];
+        lastStage[rows[i].label] = stage;
+        if (stage <= previous || stage === 0) {
+            continue;
+        }
+        var now = api.util.time();
+        if ((now - lastAt) < S_COOL.getNumber()) {
+            continue;
+        }
+        lastAt = now;
+        var rounded = Math.round(percent * 10) / 10;
+        if (S_CHAT.getBool()) {
+            if (stage === 2) {
+                api.chat.error(rows[i].label + " 快断了！剩余 " + rounded + "%");
+            } else {
+                api.chat.warn(rows[i].label + " 耐久偏低：" + rounded + "%");
+            }
+        }
+        if (S_SOUND.getBool()) {
+            api.sound.play(stage === 2 ? "random.anvil_land" : "random.click",
+                    0.6, stage === 2 ? 0.8 : 1.4);
+        }
+    }
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var rows = collect();
+    var low = [];
+    var i;
+    for (i = 0; i < rows.length; i++) {
+        if (rows[i].percent <= S_WARN.getNumber()) {
+            low.push(rows[i]);
+        }
+    }
+    if (low.length === 0) {
+        return;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 156.0;
+    var h = 22.0 + low.length * 15.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Durability", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, low.length + " 件", C_BAD, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    for (i = 0; i < low.length; i++) {
+        var rowY = y + 23.0 + i * 15.0;
+        api.render.text(x + 7.0, rowY, low[i].label, C_TEXT, true);
+        var percent = low[i].percent;
+        api.hud.textRight(x + w - 7.0, rowY,
+                (Math.round(percent * 10) / 10) + "%", colorFor(percent), true);
+        api.hud.progressBar(x + 7.0, rowY + 9.0, w - 14.0, 2.5,
+                percent / 100.0, C_TRACK, colorFor(percent));
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-14" data-switch="on">
+    <h3 data-role="title">LowHealthAlert</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  LowHealthAlert.js  ——  低血警报
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  Indicators 飘的是伤害数字，HUD 是一直显示血条；这个只在血量低于阈值时
+ *  弹一张卡片：大号血量 + 脉动圆环 + 屏幕边缘红光，同时响一声。
+ */
+var S_THRESHOLD = api.setting.number("Threshold", 6.0, 1.0, 20.0);
+var S_CHAT      = api.setting.bool("Chat", true);
+var S_SOUND     = api.setting.bool("Sound", true);
+var S_VIGNETTE  = api.setting.bool("Vignette", true);
+var S_PERIOD    = api.setting.number("PulseMs", 700.0, 200.0, 3000.0);
+var S_COOL      = api.setting.number("CooldownMs", 5000.0, 500.0, 30000.0);
+var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y         = api.setting.number("Y", 540.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFF87171;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lastAt = 0;
+
+function onEnable() {
+    lastAt = 0;
+}
+
+function pulse() {
+    var phase = (api.util.time() % S_PERIOD.getNumber()) / S_PERIOD.getNumber();
+    return Math.abs(Math.sin(phase * Math.PI));
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var health = api.player.getHealth();
+    if (health > S_THRESHOLD.getNumber()) {
+        return;
+    }
+    var now = api.util.time();
+    if ((now - lastAt) < S_COOL.getNumber()) {
+        return;
+    }
+    lastAt = now;
+    if (S_CHAT.getBool()) {
+        api.chat.error("血量低！当前 " + (Math.round(health * 10) / 10));
+    }
+    if (S_SOUND.getBool()) {
+        api.sound.play("random.orb", 0.7, 0.6);
+    }
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var health = api.player.getHealth();
+    var maxHealth = api.player.getMaxHealth();
+    if (health > S_THRESHOLD.getNumber()) {
+        return;
+    }
+    var wave = pulse();
+
+    if (S_VIGNETTE.getBool()) {
+        var alpha = Math.round((0.10 + 0.22 * wave) * 255.0);
+        var color = (alpha * 16777216) + 0xFF2222;
+        var sw = api.render.screenWidth();
+        var sh = api.render.screenHeight();
+        var edge = 26.0;
+        api.render.rect(0, 0, sw, edge, color);
+        api.render.rect(0, sh - edge, sw, edge, color);
+        api.render.rect(0, 0, edge, sh, color);
+        api.render.rect(sw - edge, 0, edge, sh, color);
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 50.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Low Health", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0,
+            "阈值 " + S_THRESHOLD.getNumber(), C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    // 左侧脉动圆环 + 中心血量
+    var cx = x + 24.0;
+    var cy = y + 34.0;
+    api.render.ring(cx, cy, 11.0 + wave * 1.5, 1.5,
+            api.color.withAlpha(C_ACCENT, Math.round(120 + 135 * wave)));
+    api.hud.textCenter(cx, cy - 4.0, (Math.round(health * 10) / 10) + "", C_TEXT, true);
+
+    var ratio = maxHealth <= 0 ? 0.0 : health / maxHealth;
+    api.render.text(x + 44.0, y + 26.0, "生命值", C_SUB, true);
+    api.hud.textRight(x + w - 7.0, y + 26.0,
+            (Math.round(health * 10) / 10) + " / " + (Math.round(maxHealth * 10) / 10), C_TEXT, true);
+    api.hud.progressBar(x + 44.0, y + 37.0, w - 51.0, 3.5, ratio, 0x33FFFFFF, C_ACCENT);
+}
+</p>
+  </div>
+
+  <div data-field="item-15" data-switch="on">
+    <h3 data-role="title">ScoreboardTracker</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  ScoreboardTracker.js  ——  计分板变化
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  侧边栏只是摆着，你得自己盯。这个监视整块内容的变化，变了就弹提示，
+ *  并在卡片上显示「当前监视行的值 + 上次变化时间」。
+ */
+var S_WATCH = api.setting.text("Watch", "");
+var S_CHECK = api.setting.integer("CheckTicks", 20, 5, 200);
+var S_CHAT  = api.setting.bool("Chat", true);
+var S_SOUND = api.setting.bool("Sound", false);
+var S_COOL  = api.setting.number("CooldownMs", 1500.0, 200.0, 20000.0);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 580.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lastText = "";
+var ready = false;
+var ticks = 0;
+var lastAt = 0;
+var changes = 0;
+var watchedLine = "";
+
+function onEnable() {
+    lastText = "";
+    ready = false;
+    ticks = 0;
+    lastAt = 0;
+    changes = 0;
+    watchedLine = "";
+}
+
+function onWorldLoad(event) {
+    lastText = "";
+    ready = false;
+    watchedLine = "";
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % S_CHECK.getValue() !== 0) {
+        return;
+    }
+    var lines = api.scoreboard.lines();
+    if (lines.size() === 0) {
+        return;
+    }
+
+    var joined = "";
+    var watch = ("" + S_WATCH.getValue()).toLowerCase();
+    var i;
+    for (i = 0; i < lines.size(); i++) {
+        var line = "" + lines.get(i);
+        joined = joined + line + "|";
+        if (watch.length > 0 && line.toLowerCase().indexOf(watch) >= 0) {
+            watchedLine = line;
+        }
+    }
+
+    if (!ready) {
+        lastText = joined;
+        ready = true;
+        return;
+    }
+    if (joined === lastText) {
+        return;
+    }
+    lastText = joined;
+    changes++;
+
+    var now = api.util.time();
+    if ((now - lastAt) < S_COOL.getNumber()) {
+        return;
+    }
+    lastAt = now;
+    if (S_CHAT.getBool()) {
+        api.chat.info("计分板变化" + (watchedLine.length > 0 ? ": " + watchedLine : ""));
+    }
+    if (S_SOUND.getBool()) {
+        api.sound.play("random.click", 0.4, 1.6);
+    }
+}
+
+function onRender2D() {
+    if (!ready || watchedLine.length === 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 44.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Scoreboard", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, changes + " 次变化", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    api.render.text(x + 7.0, y + 23.0, api.hud.trim(watchedLine, w - 14.0), C_TEXT, true);
+    var ago = Math.round((api.util.time() - lastAt) / 1000.0);
+    api.render.text(x + 7.0, y + 34.0, lastAt === 0 ? "等待变化" : ago + "s 前变化", C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-16" data-switch="on">
+    <h3 data-role="title">PacketStats</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  PacketStats.js  ——  封包统计
+ * =============================================================================
+ *  钩子: onPacket / onRender2D
+ *
+ *  没有模块把「每秒收发包数量」摊开。卡的时候一眼看出是发包被堵住，
+ *  还是服务端不回包。右侧是最近 16 秒的柱状图。
+ */
+var S_SHOW = api.setting.integer("TopTypes", 3, 1, 8);
+var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y    = api.setting.number("Y", 620.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_OUT    = 0xFF6C8CFF;
+var C_IN     = 0xFF4ADE80;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var sent = 0;
+var received = 0;
+var types = {};
+var lastAt = 0;
+var sentRate = 0;
+var receivedRate = 0;
+var topTypes = [];
+var history = [];
+
+function onEnable() {
+    sent = 0;
+    received = 0;
+    types = {};
+    lastAt = api.util.time();
+    sentRate = 0;
+    receivedRate = 0;
+    topTypes = [];
+    history = [];
+}
+
+function onPacket(event) {
+    var packet = event.getPacket();
+    if (packet === null || packet === undefined) {
+        return;
+    }
+    var name = "" + api.packet.getPacketName(packet);
+    if (api.packet.isSending(packet)) {
+        sent++;
+    } else if (api.packet.isReceiving(packet)) {
+        received++;
+    } else {
+        return;
+    }
+    types[name] = (types[name] === undefined ? 1 : types[name] + 1);
+}
+
+function flush() {
+    var now = api.util.time();
+    var elapsed = now - lastAt;
+    if (elapsed < 1000) {
+        return;
+    }
+    sentRate = Math.round(sent * 1000.0 / elapsed);
+    receivedRate = Math.round(received * 1000.0 / elapsed);
+    sent = 0;
+    received = 0;
+    lastAt = now;
+
+    history.push(sentRate + receivedRate);
+    while (history.length > 16) {
+        history.shift();
+    }
+
+    var list = [];
+    var name;
+    for (name in types) {
+        if (!types.hasOwnProperty(name)) {
+            continue;
+        }
+        list.push({ name: name, count: types[name] });
+    }
+    list.sort(function (a, b) { return b.count - a.count; });
+    topTypes = list;
+    types = {};
+}
+
+function onRender2D() {
+    flush();
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var limit = Math.min(topTypes.length, S_SHOW.getValue());
+    var h = 40.0 + limit * 10.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Packets", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, (sentRate + receivedRate) + "/s", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    api.render.circle(x + 10.0, y + 27.0, 2.0, C_OUT);
+    api.render.text(x + 15.0, y + 23.0, "↑ " + sentRate, C_TEXT, true);
+    api.render.circle(x + 58.0, y + 27.0, 2.0, C_IN);
+    api.render.text(x + 63.0, y + 23.0, "↓ " + receivedRate, C_TEXT, true);
+
+    // 最近 16 秒的柱状图
+    var graphX = x + 104.0;
+    var graphW = w - 111.0;
+    var graphY = y + 22.0;
+    var graphH = 12.0;
+    var max = 1;
+    var i;
+    for (i = 0; i < history.length; i++) {
+        if (history[i] > max) {
+            max = history[i];
+        }
+    }
+    var barW = graphW / 16.0 - 1.0;
+    for (i = 0; i < history.length; i++) {
+        var barH = graphH * (history[i] / max);
+        api.render.roundedRect(graphX + i * (barW + 1.0), graphY + graphH - barH,
+                barW, barH, 1.0, api.color.withAlpha(C_ACCENT, 200));
+    }
+
+    for (i = 0; i < limit; i++) {
+        var rowY = y + 40.0 + i * 10.0;
+        api.render.text(x + 7.0, rowY,
+                api.hud.trim(topTypes[i].name, w - 40.0), C_SUB, true);
+        api.hud.textRight(x + w - 7.0, rowY, "" + topTypes[i].count, C_TEXT, true);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-17" data-switch="on">
+    <h3 data-role="title">ItemCounter</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  ItemCounter.js  ——  背包分类统计
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  InvManager 会「动」背包；这个只统计不修改：方块 / 食物 / 武器 / 工具各多少，
+ *  右侧用占比条表示结构，出门前一眼看出缺什么。
+ */
+var S_BLOCKS = api.setting.bool("CountBlocks", true);
+var S_FOOD   = api.setting.bool("CountFood", true);
+var S_WEAPON = api.setting.bool("CountWeapons", true);
+var S_TOOL   = api.setting.bool("CountTools", true);
+var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y      = api.setting.number("Y", 660.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var counts = { blocks: 0, food: 0, weapons: 0, tools: 0 };
+var ticks = 0;
+
+function onEnable() {
+    ticks = 0;
+}
+
+function recount() {
+    counts.blocks = 0;
+    counts.food = 0;
+    counts.weapons = 0;
+    counts.tools = 0;
+    var i;
+    for (i = 0; i < 36; i++) {
+        var stack = api.inventory.getStack(i);
+        if (stack === null || !stack.isValid()) {
+            continue;
+        }
+        var size = stack.getStackSize();
+        if (stack.isBlock()) {
+            counts.blocks += size;
+        } else if (stack.isFood()) {
+            counts.food += size;
+        } else if (stack.isSword()) {
+            counts.weapons += size;
+        } else if (stack.isTool()) {
+            counts.tools += size;
+        }
+    }
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % 20 === 0) {
+        recount();
+    }
+}
+
+function onRender2D() {
+    var rows = [];
+    if (S_BLOCKS.getBool()) { rows.push({ label: "方块", value: counts.blocks }); }
+    if (S_FOOD.getBool()) { rows.push({ label: "食物", value: counts.food }); }
+    if (S_WEAPON.getBool()) { rows.push({ label: "武器", value: counts.weapons }); }
+    if (S_TOOL.getBool()) { rows.push({ label: "工具", value: counts.tools }); }
+    if (rows.length === 0) {
+        return;
+    }
+
+    var total = 0;
+    var i;
+    for (i = 0; i < rows.length; i++) {
+        total += rows[i].value;
+    }
+    if (total <= 0) {
+        return;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 156.0;
+    var h = 22.0 + rows.length * 13.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Inventory", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, total + " 件", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    for (i = 0; i < rows.length; i++) {
+        var rowY = y + 23.0 + i * 13.0;
+        api.render.text(x + 7.0, rowY, rows[i].label, C_TEXT, true);
+        api.hud.textRight(x + w - 7.0, rowY, "" + rows[i].value, C_TEXT, true);
+        api.hud.progressBar(x + 7.0, rowY + 9.0, w - 14.0, 2.0,
+                rows[i].value / total, C_TRACK, C_ACCENT);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-18" data-switch="on">
+    <h3 data-role="title">PotionTimer</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  PotionTimer.js  ——  药水到期提醒
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  HUD 把效果列出来要你自己看；这个只挑「快没了的」显示，
+ *  带倒计时进度条，同时响一声。
+ */
+var S_WARN    = api.setting.number("WarnSeconds", 10.0, 1.0, 120.0);
+var S_CHAT    = api.setting.bool("Chat", true);
+var S_SOUND   = api.setting.bool("Sound", true);
+var S_ONLY_GOOD = api.setting.bool("OnlyPositive", true);
+var S_X       = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y       = api.setting.number("Y", 700.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFFBBF24;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var warned = {};
+
+function onEnable() {
+    warned = {};
+}
+
+function isNegative(name) {
+    var bad = ["Poison", "Wither", "Weakness", "Slowness", "Mining Fatigue",
+               "Nausea", "Blindness", "Hunger", "Levitation", "Unluck"];
+    var i;
+    for (i = 0; i < bad.length; i++) {
+        if (name.indexOf(bad[i]) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var list = api.potion.effects();
+    var alive = {};
+    var i;
+    for (i = 0; i < list.size(); i++) {
+        var effect = list.get(i);
+        var name = "" + effect.getName();
+        alive[name] = true;
+        if (effect.isInfinite()) {
+            continue;
+        }
+        if (S_ONLY_GOOD.getBool() && isNegative(name)) {
+            continue;
+        }
+        if (effect.getDurationSeconds() > S_WARN.getNumber()) {
+            continue;
+        }
+        if (warned[name] === true) {
+            continue;
+        }
+        warned[name] = true;
+        if (S_CHAT.getBool()) {
+            api.chat.warn(name + " 即将结束（" + Math.ceil(effect.getDurationSeconds()) + "s）");
+        }
+        if (S_SOUND.getBool()) {
+            api.sound.play("random.click", 0.6, 1.8);
+        }
+    }
+    var key;
+    for (key in warned) {
+        if (warned.hasOwnProperty(key) && alive[key] !== true) {
+            warned[key] = false;
+        }
+    }
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var list = api.potion.effects();
+    var rows = [];
+    var i;
+    for (i = 0; i < list.size(); i++) {
+        var effect = list.get(i);
+        if (effect.isInfinite()) {
+            continue;
+        }
+        var name = "" + effect.getName();
+        if (S_ONLY_GOOD.getBool() && isNegative(name)) {
+            continue;
+        }
+        var seconds = effect.getDurationSeconds();
+        if (seconds > S_WARN.getNumber()) {
+            continue;
+        }
+        rows.push({ name: name, seconds: seconds });
+    }
+    if (rows.length === 0) {
+        return;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 160.0;
+    var h = 22.0 + rows.length * 15.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Expiring", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 个", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    for (i = 0; i < rows.length; i++) {
+        var rowY = y + 23.0 + i * 15.0;
+        api.render.text(x + 7.0, rowY, api.hud.trim(rows[i].name, 90.0), C_TEXT, true);
+        api.hud.textRight(x + w - 7.0, rowY,
+                Math.ceil(rows[i].seconds) + "s", C_ACCENT, true);
+        api.hud.progressBar(x + 7.0, rowY + 9.0, w - 14.0, 2.0,
+                rows[i].seconds / S_WARN.getNumber(), C_TRACK, C_ACCENT);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-19" data-switch="on">
+    <h3 data-role="title">FightLogger</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  FightLogger.js  ——  战斗记录
+ * =============================================================================
+ *  钩子: onAttack / onTick / onRender2D
+ *
+ *  没有模块记「这场跟谁打了多久、出了几刀」。第一次攻击开始计时，
+ *  超过 IdleSeconds 没再打就收尾，写一行到 fight.log，卡片上显示当前战况。
+ */
+var S_IDLE  = api.setting.number("IdleSeconds", 6.0, 2.0, 60.0);
+var S_CHAT  = api.setting.bool("ChatSummary", true);
+var S_FILE  = api.setting.bool("WriteFile", true);
+var S_RANGE = api.setting.number("Range", 4.5, 1.0, 8.0);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 740.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var active = false;
+var targetName = "";
+var startedAt = 0;
+var lastHitAt = 0;
+var hits = 0;
+var totalDistance = 0.0;
+var samples = 0;
+var lastSummary = "";
+
+function onEnable() {
+    active = false;
+    targetName = "";
+    hits = 0;
+    lastSummary = "";
+}
+
+function begin(name) {
+    active = true;
+    targetName = name;
+    startedAt = api.util.time();
+    lastHitAt = startedAt;
+    hits = 1;
+    totalDistance = 0.0;
+    samples = 0;
+}
+
+function finish() {
+    if (!active) {
+        return;
+    }
+    var duration = (api.util.time() - startedAt) / 1000.0;
+    var average = samples === 0 ? 0.0 : totalDistance / samples;
+    lastSummary = targetName + " · " + (Math.round(duration * 10) / 10) + "s · "
+            + hits + " 刀 · " + (Math.round(average * 100) / 100) + "m";
+    if (S_CHAT.getBool()) {
+        api.chat.info("战斗结束：" + lastSummary);
+    }
+    if (S_FILE.getBool()) {
+        api.file.append("fight.log", "[" + new Date().toLocaleString() + "] "
+                + "对手=" + targetName
+                + " 时长=" + (Math.round(duration * 10) / 10) + "s"
+                + " 出手=" + hits
+                + " 平均距离=" + (Math.round(average * 100) / 100) + "m");
+    }
+    active = false;
+    targetName = "";
+    hits = 0;
+}
+
+function onAttack(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var target = api.combat.getTarget();
+    if (target === null || !target.isValid()) {
+        target = api.target.getNearest(S_RANGE.getNumber());
+    }
+    if (target === null || !target.isValid()) {
+        return;
+    }
+    var name = "" + target.getName();
+    if (!active || name !== targetName) {
+        finish();
+        begin(name);
+        return;
+    }
+    hits++;
+    lastHitAt = api.util.time();
+}
+
+function onTick() {
+    if (!active) {
+        return;
+    }
+    if ((api.util.time() - lastHitAt) > S_IDLE.getNumber() * 1000.0) {
+        finish();
+        return;
+    }
+    var target = api.target.getNearest(S_RANGE.getNumber());
+    if (target !== null && target.isValid() && ("" + target.getName()) === targetName) {
+        totalDistance += target.getDistanceToPlayer();
+        samples++;
+    }
+}
+
+function onRender2D() {
+    if (!active) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 50.0;
+    card(x, y, w, h);
+
+    var duration = (api.util.time() - startedAt) / 1000.0;
+    api.render.text(x + 7.0, y + 7.0, "Fight", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, (Math.round(duration * 10) / 10) + "s", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    api.render.text(x + 7.0, y + 23.0, api.hud.trim(targetName, w - 14.0), C_TEXT, true);
+
+    api.render.text(x + 7.0, y + 34.0, "出手 " + hits, C_SUB, true);
+    var average = samples === 0 ? 0.0 : totalDistance / samples;
+    api.hud.textRight(x + w - 7.0, y + 34.0,
+            (Math.round(average * 100) / 100) + "m", C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-20" data-switch="on">
+    <h3 data-role="title">BedTracker</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  BedTracker.js  ——  床坐标记录
+ * =============================================================================
+ *  钩子: onRightClick / onRender2D
+ *
+ *  BedESP 只画视野里看得见的床；这个记「刚才那张床在哪」。
+ *  右键指着床就记下来（按坐标去重），卡片按距离排序，带方位箭头。
+ */
+var S_CHAT = api.setting.bool("Chat", true);
+var S_MAX  = api.setting.integer("MaxShow", 3, 1, 10);
+var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y    = api.setting.number("Y", 780.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x22FFFFFF;
+var C_ACCENT = 0xFFFF66CC;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var beds = [];
+
+function onEnable() {
+    beds = [];
+    var raw = api.store.get("beds", "");
+    if (raw === null || raw === undefined || ("" + raw).length === 0) {
+        return;
+    }
+    var chunks = ("" + raw).split(";");
+    var i;
+    for (i = 0; i < chunks.length; i++) {
+        var parts = chunks[i].split(",");
+        if (parts.length < 3) {
+            continue;
+        }
+        beds.push({ x: parseFloat(parts[0]), y: parseFloat(parts[1]), z: parseFloat(parts[2]) });
+    }
+}
+
+function save() {
+    var parts = [];
+    var i;
+    for (i = 0; i < beds.length; i++) {
+        parts.push(beds[i].x + "," + beds[i].y + "," + beds[i].z);
+    }
+    api.store.set("beds", parts.join(";"));
+}
+
+function alreadyKnown(x, y, z) {
+    var i;
+    for (i = 0; i < beds.length; i++) {
+        if (Math.abs(beds[i].x - x) < 1.0
+                && Math.abs(beds[i].y - y) < 1.0
+                && Math.abs(beds[i].z - z) < 1.0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function bearing(x, z) {
+    var vx = x - api.player.getX();
+    var vz = z - api.player.getZ();
+    var angle = Math.atan2(-vx, vz) * 180.0 / Math.PI;
+    var relative = angle - api.player.getYaw();
+    while (relative > 180.0) { relative -= 360.0; }
+    while (relative < -180.0) { relative += 360.0; }
+    return relative;
+}
+
+function onRightClick(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var pos = api.raycast.getPointedBlock();
+    if (pos === null) {
+        return;
+    }
+    var x = pos[0];
+    var y = pos[1];
+    var z = pos[2];
+    if (("" + api.world.getBlockName(x, y, z)).toLowerCase().indexOf("bed") < 0) {
+        return;
+    }
+    if (alreadyKnown(x, y, z)) {
+        return;
+    }
+    beds.push({ x: x, y: y, z: z });
+    save();
+    if (S_CHAT.getBool()) {
+        api.chat.success("记录床 " + x + " " + y + " " + z + "（共 " + beds.length + " 张）");
+    }
+}
+
+function onRender2D() {
+    if (beds.length === 0 || !api.player.exists()) {
+        return;
+    }
+    var rows = [];
+    var i;
+    for (i = 0; i < beds.length; i++) {
+        rows.push({
+            bed: beds[i],
+            distance: api.player.distanceTo(beds[i].x, beds[i].y, beds[i].z)
+        });
+    }
+    rows.sort(function (a, b) { return a.distance - b.distance; });
+
+    var limit = Math.min(rows.length, S_MAX.getValue());
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 22.0 + limit * 12.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 7.0, y + 7.0, "Beds", C_ACCENT, true);
+    api.hud.textRight(x + w - 7.0, y + 7.0, beds.length + " 张", C_SUB, true);
+    api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
+
+    for (i = 0; i < limit; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 12.0;
+        api.render.text(x + 7.0, rowY,
+                Math.round(row.bed.x) + " " + Math.round(row.bed.y) + " " + Math.round(row.bed.z),
+                C_TEXT, true);
+        api.hud.textRight(x + w - 20.0, rowY,
+                (Math.round(row.distance * 10) / 10) + "m", C_SUB, true);
+        api.render.triangle(x + w - 11.0, rowY + 4.0,
+                bearing(row.bed.x, row.bed.z) - 90.0, 4.5, C_ACCENT);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-21" data-switch="on">
+    <h3 data-role="title">Speedometer</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  Speedometer.js  ——  速度表
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  【为什么不和 HUD / Speed 模块重复】
+ *   Speed 模块负责「跑多快」，HUD 只显示坐标和 FPS —— 没有任何东西告诉你
+ *   「现在这一秒实际跑了多少格」。这个用真实坐标差算 m/s，画成环形表盘。
+ *
+ *  【为什么用坐标差而不是 motion】
+ *   别的模块（Speed / LongJump / Velocity）会改写 motionX/Z，
+ *   而坐标差是**已经发生的事实**，量出来才是真实速度。
+ */
+var S_MAX = api.setting.number("MaxSpeed", 12.0, 4.0, 40.0);
+var S_X   = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y   = api.setting.number("Y", 24.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFF6C8CFF;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lastX = 0.0;
+var lastZ = 0.0;
+var ready = false;
+var speed = 0.0;
+var peak = 0.0;
+var sum = 0.0;
+var samples = 0;
+
+function onEnable() {
+    ready = false;
+    speed = 0.0;
+    peak = 0.0;
+    sum = 0.0;
+    samples = 0;
+}
+
+function onWorldLoad(event) {
+    ready = false;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        ready = false;
+        return;
+    }
+    var x = api.player.getX();
+    var z = api.player.getZ();
+    if (ready) {
+        var dx = x - lastX;
+        var dz = z - lastZ;
+        var distance = Math.sqrt(dx * dx + dz * dz);
+        // 传送 / 换维度单 tick 位移会异常大，超过 8 格不计入
+        if (distance < 8.0) {
+            speed = distance * 20.0;
+            sum += speed;
+            samples++;
+            if (speed > peak) {
+                peak = speed;
+            }
+        }
+    }
+    lastX = x;
+    lastZ = z;
+    ready = true;
+}
+
+function colorFor(value) {
+    if (value >= S_MAX.getNumber() * 0.85) { return C_BAD; }
+    if (value >= S_MAX.getNumber() * 0.55) { return C_WARN; }
+    return C_GOOD;
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 58.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Speed", C_ACCENT, true);
+    var average = samples === 0 ? 0.0 : sum / samples;
+    api.hud.textRight(x + w - 8.0, y + 7.0,
+            "均 " + (Math.round(average * 10) / 10), C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    // 环形表盘：240° 弧，从 -210° 到 +30°
+    var cx = x + 30.0;
+    var cy = y + 38.0;
+    var radius = 15.0;
+    var ratio = Math.min(1.0, speed / S_MAX.getNumber());
+    api.render.arc(cx, cy, radius, -210.0, 30.0, 3.0, C_TRACK);
+    if (ratio > 0.005) {
+        api.render.arc(cx, cy, radius, -210.0, -210.0 + 240.0 * ratio, 3.0, colorFor(speed));
+    }
+    api.hud.textCenter(cx, cy - 4.0, (Math.round(speed * 10) / 10) + "", C_TEXT, true);
+
+    api.render.text(x + 54.0, y + 26.0, "当前", C_SUB, true);
+    api.render.textScaled(x + 54.0, y + 34.0, (Math.round(speed * 100) / 100) + "",
+            colorFor(speed), 1.15, true);
+    api.render.text(x + 54.0 + api.render.textWidth("00.00") * 1.15 + 3.0, y + 40.0, "m/s", C_SUB, true);
+
+    api.render.text(x + 54.0, y + 48.0, "峰值 " + (Math.round(peak * 10) / 10) + " m/s", C_SUB, true);
+    api.hud.progressBar(x + 9.0, y + h - 4.0, w - 17.0, 2.0,
+            ratio, C_TRACK, colorFor(speed));
+}
+</p>
+  </div>
+
+  <div data-field="item-22" data-switch="on">
+    <h3 data-role="title">FallDamage</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  FallDamage.js  ——  坠落伤害预测
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  【为什么没有重复】
+ *   NoFall 是「不受伤」，AntiVoid 是「不掉下去」，没有任何东西告诉你
+ *   「这一跳落地会掉几滴血」。这个在坠落途中实时预测，落地前给红字警告。
+ *
+ *  【公式】1.8.9：摔落距离超过 3 格后，每格 1 点伤害（半颗心 = 1 点）。
+ *   所以 damage = max(0, fallDistance - 3)，再按当前血量判断「会不会死」。
+ */
+var S_SAFE  = api.setting.number("SafeFall", 3.0, 1.0, 10.0);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 92.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFFFF9F43;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var peakFall = 0.0;
+var lastHealth = 20.0;
+
+function onEnable() {
+    peakFall = 0.0;
+}
+
+function onWorldLoad(event) {
+    peakFall = 0.0;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var fall = api.player.getFallDistance();
+    if (fall > peakFall) {
+        peakFall = fall;
+    }
+    // 落地后 fallDistance 归零，说明这一跳结束了
+    if (api.player.isOnGround() && fall <= 0.0) {
+        peakFall = 0.0;
+    }
+    lastHealth = api.player.getHealth();
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var fall = api.player.getFallDistance();
+    if (fall <= S_SAFE.getNumber() && peakFall <= S_SAFE.getNumber()) {
+        return;
+    }
+    var damage = Math.max(0.0, fall - S_SAFE.getNumber());
+    var color = C_GOOD;
+    if (damage >= lastHealth) {
+        color = C_BAD;
+    } else if (damage > 0.0) {
+        color = C_WARN;
+    }
+
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 52.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Fall Damage", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0,
+            (Math.round(fall * 10) / 10) + " 格", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    api.render.textScaled(x + 9.0, y + 23.0, "≈ " + (Math.round(damage * 10) / 10),
+            color, 1.45, true);
+    api.render.text(x + 62.0, y + 32.0, "点伤害", C_SUB, true);
+
+    var hearts = Math.round(damage / 2.0 * 10.0) / 10.0;
+    api.render.text(x + 9.0, y + 42.0, "≈ " + hearts + " 颗心", C_TEXT, true);
+    api.hud.textRight(x + w - 8.0, y + 42.0,
+            damage >= lastHealth ? "致命" : ("剩余 " + (Math.round((lastHealth - damage) * 10) / 10)),
+            damage >= lastHealth ? C_BAD : C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-23" data-switch="on">
+    <h3 data-role="title">Killstreak</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  Killstreak.js  ——  连续击杀
+ * =============================================================================
+ *  钩子: onChatReceive / onHealthUpdate / onRender2D
+ *
+ *  【为什么不和 ComboCounter 重复】
+ *   Combo 数的是「连续命中同一个人几刀」，死了不清零；
+ *   Killstreak 数的是「连续击杀几个人，自己一死就归零」，是两个维度。
+ *
+ *  【怎么判定是我杀的】
+ *   英文服："A was slain by B" / "A was shot by B"；中文服："A 被 B 击杀"。
+ *   取关键词右边的名字，和自己的名字比对。认不出就不计数。
+ */
+var S_PERSIST = api.setting.bool("PersistBest", true);
+var S_X       = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y       = api.setting.number("Y", 148.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFFFF6B6B;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var streak = 0;
+var best = 0;
+
+function onEnable() {
+    streak = 0;
+    best = S_PERSIST.getBool() ? api.store.getInt("killstreak.best", 0) : 0;
+}
+
+var KILL_MARKERS = [" was slain by ", " was shot by ", " was killed by ", "被", "击杀"];
+
+function creditedKill(text) {
+    var me = "" + api.player.getName();
+    var i;
+    for (i = 0; i < KILL_MARKERS.length; i++) {
+        var index = text.indexOf(KILL_MARKERS[i]);
+        if (index < 0) {
+            continue;
+        }
+        var tail = text.substring(index + KILL_MARKERS[i].length);
+        if (tail.indexOf(me) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function onChatReceive(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    if (!creditedKill("" + message)) {
+        return;
+    }
+    streak++;
+    if (streak > best) {
+        best = streak;
+        if (S_PERSIST.getBool()) {
+            api.store.set("killstreak.best", "" + best);
+        }
+    }
+}
+
+function onHealthUpdate(event) {
+    if (!event.isDead()) {
+        return;
+    }
+    streak = 0;
+}
+
+function onRender2D() {
+    if (!api.player.exists() || streak <= 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 132.0;
+    var h = 46.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Killstreak", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0, "最高 " + best, C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    api.render.textScaled(x + 9.0, y + 22.0, "" + streak, C_ACCENT, 1.6, true);
+    api.render.text(x + 9.0 + 12.0 * ("" + streak).length, y + 30.0, "连杀", C_TEXT, true);
+
+    var ratio = best <= 0 ? 0.0 : Math.min(1.0, streak / (best * 1.0));
+    api.hud.progressBar(x + 9.0, y + h - 5.0, w - 17.0, 2.0, ratio, C_TRACK, C_ACCENT);
+}
+</p>
+  </div>
+
+  <div data-field="item-24" data-switch="on">
+    <h3 data-role="title">DeathCause</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  DeathCause.js  ——  上次死因
+ * =============================================================================
+ *  钩子: onHealthUpdate / onChatReceive / onRender2D
+ *
+ *  【为什么不和 DeathCoords 重复】
+ *   DeathCoords 记的是「死在哪」，这个记的是「被什么打死、掉了多少血」。
+ *   两个配合看：先知道怎么死的，再跑回去捡东西。
+ *
+ *  【怎么拿死因】
+ *   1. 死亡瞬间 onHealthUpdate 给的 damage（这一下掉了多少）；
+ *   2. 最近一条含死亡关键词的聊天（谁杀的）；
+ *   3. 当时的血量与护甲值。
+ *   三条一起存进 api.store，跨会话保留。
+ */
+var S_X = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y = api.setting.number("Y", 204.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFFF87171;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var hasDeath = false;
+var lastDamage = 0.0;
+var causeText = "";
+var armorValue = 0;
+var deathAt = 0;
+
+var MARKERS = [" was slain by ", " was shot by ", " was killed by ", " 被 ", "死于", "被", "击杀"];
+
+function looksLikeDeath(text) {
+    var i;
+    for (i = 0; i < MARKERS.length; i++) {
+        if (text.indexOf(MARKERS[i]) >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function onEnable() {
+    hasDeath = api.store.getBool("deathcause.exists", false);
+    lastDamage = api.store.getNumber("deathcause.damage", 0.0);
+    causeText = "" + api.store.get("deathcause.text", "");
+    armorValue = api.store.getInt("deathcause.armor", 0);
+    deathAt = api.store.getInt("deathcause.time", 0);
+}
+
+function onChatReceive(event) {
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    var text = "" + message;
+    if (looksLikeDeath(text)) {
+        causeText = text;
+    }
+}
+
+function onHealthUpdate(event) {
+    if (!event.isDead() || !api.player.exists()) {
+        return;
+    }
+    lastDamage = event.getDamage();
+    armorValue = api.player.getAbsorption() > 0 ? 1 : 0;
+    deathAt = api.util.time();
+    hasDeath = true;
+    api.store.set("deathcause.exists", "true");
+    api.store.set("deathcause.damage", "" + lastDamage);
+    api.store.set("deathcause.text", causeText);
+    api.store.set("deathcause.time", "" + deathAt);
+    api.store.set("deathcause.armor", "" + armorValue);
+}
+
+function onRender2D() {
+    if (!hasDeath || !api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 196.0;
+    var h = 50.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Last Death", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0,
+            Math.round((api.util.time() - deathAt) / 1000.0) + "s 前", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    api.render.text(x + 9.0, y + 23.0, "伤害", C_SUB, true);
+    api.render.textScaled(x + 34.0, y + 22.0, (Math.round(lastDamage * 10) / 10) + "",
+            C_ACCENT, 1.15, true);
+    api.render.text(x + 92.0, y + 25.0, "点", C_SUB, true);
+
+    var cause = causeText.length > 0 ? causeText : "未知（聊天里没有击杀信息）";
+    api.render.text(x + 9.0, y + 38.0, api.hud.trim(cause, w - 18.0), C_TEXT, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-25" data-switch="on">
+    <h3 data-role="title">BlockInfo</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  BlockInfo.js  ——  准星方块信息
+ * =============================================================================
+ *  钩子: onRender2D
+ *
+ *  【为什么没有重复】
+ *   BedESP / ChestESP / Xray 都是「把方块画出来」，没有任何模块告诉你
+ *   准星指着的那一格是什么、坐标多少、亮度多少、挖不挖得动。
+ *
+ *  【为什么不画 3D 描边】
+ *   八个角全投影再连线要处理遮挡顺序，还容易和光影模块抢渲染状态；
+ *   这里做「信息条」，跨版本最稳。
+ */
+var S_NAME  = api.setting.bool("ShowName", true);
+var S_COORD = api.setting.bool("ShowCoords", true);
+var S_LIGHT = api.setting.bool("ShowLight", true);
+var S_DIST  = api.setting.bool("ShowDistance", true);
+var S_OFF_Y = api.setting.number("OffsetY", 20.0, 0.0, 200.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFF7DD3FC;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_CHIP   = 0x1AFFFFFF;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+function onRender2D() {
+    if (!api.player.exists()) {
+        return;
+    }
+    var pos = api.raycast.getPointedBlock();
+    if (pos === null) {
+        return;
+    }
+    var bx = pos[0];
+    var by = pos[1];
+    var bz = pos[2];
+    var name = "" + api.world.getBlockName(bx, by, bz);
+
+    var chips = [];
+    if (S_COORD.getBool()) {
+        chips.push(bx + " " + by + " " + bz);
+    }
+    if (S_LIGHT.getBool()) {
+        chips.push("光照 " + api.world.getLightLevel(bx, by, bz));
+    }
+    if (S_DIST.getBool()) {
+        var dx = bx + 0.5 - api.player.getX();
+        var dy = by + 0.5 - api.player.getY();
+        var dz = bz + 0.5 - api.player.getZ();
+        chips.push((Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz) * 10) / 10) + "m");
+    }
+    if (chips.length === 0 && !S_NAME.getBool()) {
+        return;
+    }
+
+    var sw = api.render.screenWidth();
+    var sh = api.render.screenHeight();
+    var width = 0;
+    var i;
+    if (S_NAME.getBool()) {
+        width = api.render.textWidth(name);
+    }
+    for (i = 0; i < chips.length; i++) {
+        width += api.render.textWidth(chips[i]) + 14.0;
+    }
+    width = Math.max(width + 18.0, 60.0);
+    var height = 22.0;
+    var x = sw / 2.0 - width / 2.0;
+    var y = sh / 2.0 + S_OFF_Y.getNumber();
+
+    card(x, y, width, height);
+    if (S_NAME.getBool()) {
+        api.render.text(x + 9.0, y + 7.0, api.hud.trim(name, width - 60.0), C_TEXT, true);
+    }
+    var cursor = x + 9.0;
+    if (S_NAME.getBool()) {
+        cursor += api.render.textWidth(api.hud.trim(name, width - 60.0)) + 8.0;
+    }
+    for (i = 0; i < chips.length; i++) {
+        var chipW = api.hud.chip(cursor, y + 4.0, chips[i], C_CHIP, C_SUB);
+        cursor += chipW + 4.0;
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-26" data-switch="on">
+    <h3 data-role="title">Waypoint</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  Waypoint.js  ——  自定义坐标点
+ * =============================================================================
+ *  钩子: onKey / onRender2D
+ *
+ *  【为什么不和 DeathCoords / BedTracker 重复】
+ *   那两个是「自动记」：死亡点、右键到的床。这个是「手动记任意点」，
+ *   想标矿洞、队友家、刷怪笼都行，列表按距离排序，带方位箭头。
+ *
+ *  【存哪】api.store 里一段 "名字,x,y,z;..." 文本，跨会话保留。
+ */
+var S_ADD_KEY   = api.setting.integer("AddKey", 19, 0, 255);
+var S_CLEAR_KEY = api.setting.integer("ClearKey", 211, 0, 255);
+var S_SHOW      = api.setting.integer("MaxShow", 4, 1, 12);
+var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y         = api.setting.number("Y", 260.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFFA78BFA;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var points = [];
+
+function loadPoints() {
+    points = [];
+    var raw = "" + api.store.get("waypoints2", "");
+    if (raw.length === 0) {
+        return;
+    }
+    var chunks = raw.split(";");
+    var i;
+    for (i = 0; i < chunks.length; i++) {
+        var parts = chunks[i].split(",");
+        if (parts.length < 4) {
+            continue;
+        }
+        points.push({
+            name: parts[0],
+            x: parseFloat(parts[1]),
+            y: parseFloat(parts[2]),
+            z: parseFloat(parts[3])
+        });
+    }
+}
+
+function savePoints() {
+    var parts = [];
+    var i;
+    for (i = 0; i < points.length; i++) {
+        parts.push(points[i].name + "," + points[i].x + "," + points[i].y + "," + points[i].z);
+    }
+    api.store.set("waypoints2", parts.join(";"));
+}
+
+function onEnable() {
+    loadPoints();
+    api.chat.info("Waypoint：R 记录 / Delete 清空（已有 " + points.length + " 个）");
+}
+
+function onDisable() {
+    savePoints();
+}
+
+function onKey(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var key = event.getKey();
+    if (key === S_CLEAR_KEY.getValue()) {
+        points = [];
+        savePoints();
+        api.chat.warn("Waypoint 已清空");
+        return;
+    }
+    if (key !== S_ADD_KEY.getValue()) {
+        return;
+    }
+    points.push({
+        name: "P" + (points.length + 1),
+        x: api.player.getX(),
+        y: api.player.getY(),
+        z: api.player.getZ()
+    });
+    savePoints();
+    api.chat.success("记录 " + points[points.length - 1].name
+            + "（" + Math.round(api.player.getX()) + " "
+            + Math.round(api.player.getY()) + " "
+            + Math.round(api.player.getZ()) + "）");
+}
+
+function bearing(x, z) {
+    var vx = x - api.player.getX();
+    var vz = z - api.player.getZ();
+    var angle = Math.atan2(-vx, vz) * 180.0 / Math.PI;
+    var relative = angle - api.player.getYaw();
+    while (relative > 180.0) { relative -= 360.0; }
+    while (relative < -180.0) { relative += 360.0; }
+    return relative;
+}
+
+function onRender2D() {
+    if (points.length === 0 || !api.player.exists()) {
+        return;
+    }
+    var rows = [];
+    var i;
+    for (i = 0; i < points.length; i++) {
+        rows.push({
+            point: points[i],
+            distance: api.player.distanceTo(points[i].x, points[i].y, points[i].z)
+        });
+    }
+    rows.sort(function (a, b) { return a.distance - b.distance; });
+
+    var limit = Math.min(rows.length, S_SHOW.getValue());
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 22.0 + limit * 12.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Waypoints", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0, points.length + " 个", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    for (i = 0; i < limit; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 12.0;
+        api.render.text(x + 9.0, rowY, row.point.name, C_TEXT, true);
+        api.render.text(x + 40.0, rowY,
+                Math.round(row.point.x) + " " + Math.round(row.point.y) + " " + Math.round(row.point.z),
+                C_SUB, true);
+        api.hud.textRight(x + w - 20.0, rowY,
+                (Math.round(row.distance * 10) / 10) + "m", C_SUB, true);
+        api.render.triangle(x + w - 11.0, rowY + 4.0,
+                bearing(row.point.x, row.point.z) - 90.0, 4.5, C_ACCENT);
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-27" data-switch="on">
+    <h3 data-role="title">ChatLogger</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  ChatLogger.js  ——  聊天记录
+ * =============================================================================
+ *  钩子: onChatReceive / onRender2D
+ *
+ *  【为什么没有重复】
+ *   ChatFilter 是「拦掉」，KillFeed 是「挑击杀」，没有任何东西把聊天**存下来**。
+ *   打服时被管理警告、被队友报点，事后翻记录比凭记忆靠谱。
+ *
+ *  【存哪】
+ *   config/Spire/script/data/ChatLogger/chat-YYYY-MM-DD.log，一天一个文件。
+ *   走 api.file 的沙箱，路径越界会被拒绝。
+ */
+var S_ONLY_CHAT = api.setting.bool("OnlyChat", true);
+var S_SHOW      = api.setting.bool("ShowPanel", true);
+var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y         = api.setting.number("Y", 320.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFF34D399;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var lines = 0;
+var fileName = "";
+
+function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+}
+
+function today() {
+    var now = new Date();
+    return now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+}
+
+function stamp() {
+    var now = new Date();
+    return pad2(now.getHours()) + ":" + pad2(now.getMinutes()) + ":" + pad2(now.getSeconds());
+}
+
+function onEnable() {
+    fileName = "chat-" + today() + ".log";
+    lines = 0;
+}
+
+function onChatReceive(event) {
+    if (S_ONLY_CHAT.getBool() && !event.isChat()) {
+        return;
+    }
+    var message = event.getMessage();
+    if (message === null || message === undefined) {
+        return;
+    }
+    var name = "chat-" + today() + ".log";
+    if (name !== fileName) {
+        fileName = name;
+        lines = 0;
+    }
+    if (api.file.append(fileName, "[" + stamp() + "] " + message)) {
+        lines++;
+    }
+}
+
+function onRender2D() {
+    if (!S_SHOW.getBool() || lines === 0) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 172.0;
+    var h = 44.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Chat Log", C_ACCENT, true);
+    var kb = Math.round(api.file.size(fileName) / 102.4) / 10.0;
+    api.hud.textRight(x + w - 8.0, y + 7.0, kb + " KB", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    api.render.text(x + 9.0, y + 23.0, "今日 " + lines + " 条", C_TEXT, true);
+    api.render.text(x + 9.0, y + 34.0, api.hud.trim(fileName, w - 18.0), C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-28" data-switch="on">
+    <h3 data-role="title">NearbyPlayers</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  NearbyPlayers.js  ——  附近玩家
+ * =============================================================================
+ *  钩子: onTick / onRender2D
+ *
+ *  【为什么不和 ESP / TargetHUD / PlayerTracker 重复】
+ *   ESP 把框画在世界里（看不清血量和名字）、TargetHUD 只显示一个目标、
+ *   PlayerTracker 记的是「刚才在哪」。这个是**活的名单**：谁在你附近、
+ *   多远、还剩多少血、是不是队友。
+ */
+var S_RANGE = api.setting.number("Range", 24.0, 4.0, 128.0);
+var S_SHOW  = api.setting.integer("MaxShow", 6, 1, 15);
+var S_FRIEND_ONLY = api.setting.bool("FriendsOnly", false);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 360.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFF60A5FA;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+var C_FRIEND = 0xFF34D399;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var rows = [];
+var ticks = 0;
+
+function onEnable() {
+    rows = [];
+    ticks = 0;
+}
+
+function refresh() {
+    var players = api.entity.getPlayers();
+    var list = [];
+    var i;
+    for (i = 0; i < players.size(); i++) {
+        var player = players.get(i);
+        if (player === null || !player.isValid() || player.isSelf()) {
+            continue;
+        }
+        var distance = player.getDistanceToPlayer();
+        if (distance > S_RANGE.getNumber()) {
+            continue;
+        }
+        if (S_FRIEND_ONLY.getBool() && !player.isFriend()) {
+            continue;
+        }
+        list.push({
+            name: player.getName(),
+            distance: distance,
+            health: player.getHealthPercent(),
+            friend: player.isFriend()
+        });
+    }
+    list.sort(function (a, b) { return a.distance - b.distance; });
+    rows = list;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        return;
+    }
+    ticks++;
+    if (ticks % 10 === 0) {
+        refresh();
+    }
+}
+
+function healthColor(percent) {
+    if (percent <= 0.3) { return C_BAD; }
+    if (percent <= 0.6) { return C_WARN; }
+    return C_GOOD;
+}
+
+function onRender2D() {
+    if (rows.length === 0) {
+        return;
+    }
+    var limit = Math.min(rows.length, S_SHOW.getValue());
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 186.0;
+    var h = 22.0 + limit * 15.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Nearby", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0, rows.length + " 人", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    for (var i = 0; i < limit; i++) {
+        var row = rows[i];
+        var rowY = y + 23.0 + i * 15.0;
+        api.render.text(x + 9.0, rowY, api.hud.trim(row.name, 76.0),
+                row.friend ? C_FRIEND : C_TEXT, true);
+        api.hud.textRight(x + w - 8.0, rowY,
+                (Math.round(row.distance * 10) / 10) + "m", C_SUB, true);
+        api.hud.progressBar(x + 9.0, rowY + 9.0, w - 18.0, 2.0,
+                row.health, C_TRACK, healthColor(row.health));
+    }
+}
+</p>
+  </div>
+
+  <div data-field="item-29" data-switch="on">
+    <h3 data-role="title">DamageTracker</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  DamageTracker.js  ——  伤害统计
+ * =============================================================================
+ *  钩子: onAttack / onTick / onRender2D
+ *
+ *  【为什么不和 FightLogger 重复】
+ *   FightLogger 记的是「这一场多久、出了几刀」，写进文件；
+ *   这个算的是「这几刀实际打掉了对方多少血」，实时显示在屏幕上。
+ *   一个记过程，一个记结果。
+ *
+ *  【怎么算伤害】
+ *   攻击前记下目标血量，下一次攻击时用「上一次血量 − 这一次血量」当上一刀的伤害。
+ *   血量回升（回血/金苹果）时差值可能是负的，直接丢弃不计入。
+ */
+var S_IDLE  = api.setting.number("ResetSeconds", 6.0, 2.0, 60.0);
+var S_RANGE = api.setting.number("Range", 4.5, 1.0, 8.0);
+var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y     = api.setting.number("Y", 420.0, 0.0, 2000.0);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFFFB7185;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+var C_TRACK  = 0x26FFFFFF;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var active = false;
+var targetName = "";
+var lastHealth = 0.0;
+var totalDamage = 0.0;
+var hits = 0;
+var lastAt = 0;
+
+function onEnable() {
+    active = false;
+    targetName = "";
+    hits = 0;
+    totalDamage = 0.0;
+}
+
+function begin(name, health) {
+    active = true;
+    targetName = name;
+    lastHealth = health;
+    totalDamage = 0.0;
+    hits = 1;
+    lastAt = api.util.time();
+}
+
+function onAttack(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    var target = api.combat.getTarget();
+    if (target === null || !target.isValid()) {
+        target = api.target.getNearest(S_RANGE.getNumber());
+    }
+    if (target === null || !target.isValid()) {
+        return;
+    }
+    var name = "" + target.getName();
+    var health = target.getHealth();
+    var now = api.util.time();
+
+    if (!active || name !== targetName || (now - lastAt) > S_IDLE.getNumber() * 1000.0) {
+        begin(name, health);
+        return;
+    }
+    var dealt = lastHealth - health;
+    if (dealt > 0.0) {
+        totalDamage += dealt;
+        hits++;
+    }
+    lastHealth = health;
+    lastAt = now;
+}
+
+function onTick() {
+    if (!active) {
+        return;
+    }
+    if ((api.util.time() - lastAt) > S_IDLE.getNumber() * 1000.0) {
+        active = false;
+        targetName = "";
+        hits = 0;
+        totalDamage = 0.0;
+    }
+}
+
+function onRender2D() {
+    if (!active) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 176.0;
+    var h = 50.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Damage", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0, hits + " 刀", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    api.render.text(x + 9.0, y + 23.0, api.hud.trim(targetName, w - 18.0), C_TEXT, true);
+
+    api.render.textScaled(x + 9.0, y + 32.0, (Math.round(totalDamage * 10) / 10) + "",
+            C_ACCENT, 1.3, true);
+    var average = hits <= 0 ? 0.0 : totalDamage / hits;
+    api.hud.textRight(x + w - 8.0, y + 34.0,
+            "均 " + (Math.round(average * 10) / 10) + " / 刀", C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-30" data-switch="on">
+    <h3 data-role="title">SessionStats</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  SessionStats.js  ——  本次会话统计
+ * =============================================================================
+ *  钩子: onTick / onHealthUpdate / onRender2D
+ *
+ *  【为什么不和 FightLogger / Speedometer 重复】
+ *   Speedometer 是瞬时速度，FightLogger 是单场战斗；
+ *   这个是「这一局玩了多久、走了多远、死了几次」，收尾复盘用。
+ *
+ *  【距离怎么算】
+ *   用真实坐标差累加，单 tick 超过 8 格视为传送不计入。
+ */
+var S_X   = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y   = api.setting.number("Y", 480.0, 0.0, 2000.0);
+var S_HUD = api.setting.bool("Hud", true);
+
+var C_TOP    = 0xF01A1A20;
+var C_BOTTOM = 0xE60E0E12;
+var C_BORDER = 0x26FFFFFF;
+var C_ACCENT = 0xFF818CF8;
+var C_TEXT   = 0xFFF2F2F7;
+var C_SUB    = 0xFF9AA0B4;
+
+function card(x, y, w, h) {
+    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
+    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
+    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
+    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
+    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
+            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+}
+
+var ticks = 0;
+var distance = 0.0;
+var deaths = 0;
+var lastX = 0.0;
+var lastZ = 0.0;
+var ready = false;
+
+function onEnable() {
+    ticks = 0;
+    distance = 0.0;
+    deaths = 0;
+    ready = false;
+}
+
+function onWorldLoad(event) {
+    ready = false;
+}
+
+function onTick() {
+    if (!api.player.exists()) {
+        ready = false;
+        return;
+    }
+    ticks++;
+    var x = api.player.getX();
+    var z = api.player.getZ();
+    if (ready) {
+        var dx = x - lastX;
+        var dz = z - lastZ;
+        var step = Math.sqrt(dx * dx + dz * dz);
+        if (step < 8.0) {
+            distance += step;
+        }
+    }
+    lastX = x;
+    lastZ = z;
+    ready = true;
+
+    // 每 5 秒记一次历史最远距离（放在 onTick 里，onRender2D 一帧跑一次会写爆磁盘）
+    if (ticks % 100 === 0) {
+        var best = api.store.getInt("session.best", 0);
+        var current = Math.round(distance);
+        if (current > best) {
+            api.store.set("session.best", "" + current);
+        }
+    }
+}
+
+function onHealthUpdate(event) {
+    if (event.isDead()) {
+        deaths++;
+    }
+}
+
+function duration() {
+    var seconds = Math.floor(ticks / 20.0);
+    var minutes = Math.floor(seconds / 60.0);
+    return minutes + "m " + (seconds % 60 < 10 ? "0" : "") + (seconds % 60) + "s";
+}
+
+function onRender2D() {
+    if (!S_HUD.getBool() || !api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 186.0;
+    var h = 22.0 + 3 * 16.0 + 6.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Session", C_ACCENT, true);
+    api.hud.textRight(x + w - 8.0, y + 7.0, "本局", C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    var seconds = Math.max(1.0, ticks / 20.0);
+    var average = distance / seconds;
+    var cells = [
+        { label: "时长", value: duration() },
+        { label: "距离", value: (Math.round(distance * 10) / 10) + " 格" },
+        { label: "均速", value: (Math.round(average * 100) / 100) + " m/s" },
+        { label: "死亡", value: "" + deaths },
+        { label: "最高", value: api.store.getInt("session.best", 0) + " 格" },
+        { label: "tick", value: "" + ticks }
+    ];
+
+    var colWidth = (w - 18.0) / 2.0;
+    var i;
+    for (i = 0; i < cells.length; i++) {
+        var col = i % 2;
+        var row = Math.floor(i / 2);
+        var cx = x + 9.0 + col * colWidth;
+        var cy = y + 23.0 + row * 16.0;
+        api.render.text(cx, cy, cells[i].label, C_SUB, true);
+        api.hud.textRight(cx + colWidth - 6.0, cy, cells[i].value, C_TEXT, true);
+    }
+}
+</p>
+  </div>
+
+</body>
+</html>
