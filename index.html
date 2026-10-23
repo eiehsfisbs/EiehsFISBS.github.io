@@ -301,22 +301,34 @@ var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 24.0, 0.0, 2000.0);
 
 // ── 视觉 ────────────────────────────────────────────────────────────────────
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 // ── 状态 ────────────────────────────────────────────────────────────────────
@@ -399,7 +411,7 @@ function onRender2D() {
     var h = 54.0;
 
     card(x, y, w, h);
-    api.render.text(x + 7.0, y + 7.0, "Chat Filter", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Chat Filter", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, total + " 条", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -436,22 +448,34 @@ var S_IGNORE = api.setting.bool("IgnoreFriends", false);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 84.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lastAt = 0;
@@ -518,7 +542,7 @@ function onRender2D() {
     var h = 46.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Auto Reply", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Auto Reply", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, sent + " 次", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -528,7 +552,7 @@ function onRender2D() {
     var elapsed = api.util.time() - lastAt;
     var progress = 1.0 - (elapsed / S_COOL.getNumber());
     if (progress < 0.0) { progress = 0.0; }
-    api.hud.progressBar(x + 7.0, y + 35.0, w - 14.0, 3.0, progress, C_TRACK, C_ACCENT);
+    api.hud.progressBar(x + 7.0, y + 35.0, w - 14.0, 3.0, progress, C_TRACK, accent());
 }
 </p>
   </div>
@@ -549,21 +573,34 @@ var S_NOTIFY = api.setting.bool("NotifyOnDeath", true);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 132.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFF87171;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var hasDeath = false;
@@ -619,7 +656,7 @@ function onRender2D() {
     var h = 54.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Death Point", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Death Point", accent(), true);
     var ago = Math.round((api.util.time() - deathAt) / 1000.0);
     api.hud.textRight(x + w - 7.0, y + 7.0, ago + "s 前", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
@@ -631,7 +668,7 @@ function onRender2D() {
     api.render.text(x + 7.0, y + 37.0, (Math.round(distance * 10) / 10) + "m", C_TEXT, true);
 
     // 方向箭头：指向死亡点的相对方位
-    api.render.triangle(x + w - 18.0, y + 42.0, bearing() - 90.0, 7.0, C_ACCENT);
+    api.render.triangle(x + w - 18.0, y + 42.0, bearing() - 90.0, 7.0, accent());
     api.render.text(x + 7.0, y + 45.0, "往箭头方向走", C_SUB, true);
 }
 </p>
@@ -655,21 +692,34 @@ var S_STALE  = api.setting.number("StaleSeconds", 60.0, 10.0, 600.0);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 196.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var seen = {};
@@ -742,7 +792,7 @@ function onRender2D() {
     var h = 22.0 + limit * 11.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Tracker", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Tracker", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 人", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -776,21 +826,34 @@ var S_LIFE     = api.setting.number("LifeSeconds", 20.0, 3.0, 120.0);
 var S_X        = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y        = api.setting.number("Y", 280.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFFF8844;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var feed = [];
@@ -849,7 +912,7 @@ function onRender2D() {
     var h = 22.0 + alive.length * 11.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Kill Feed", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Kill Feed", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, alive.length + "", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -857,7 +920,7 @@ function onRender2D() {
         var rowY = y + 23.0 + i * 11.0;
         // 左侧 2px 渐隐色条
         api.render.roundedRect(x + 7.0, rowY, 2.0, 8.0, 1.0,
-                api.color.withAlpha(C_ACCENT, Math.round(120 + 135 * alive[i].fade)));
+                api.color.withAlpha(accent(), Math.round(120 + 135 * alive[i].fade)));
         api.render.text(x + 12.0, rowY,
                 api.hud.trim(alive[i].text, w - 22.0), C_TEXT, true);
     }
@@ -882,25 +945,34 @@ var S_HIDE  = api.setting.integer("HideAbove", 999, 0, 999);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 360.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var rows = [];
@@ -959,7 +1031,7 @@ function onRender2D() {
     var h = 22.0 + limit * 11.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Ping", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Ping", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 人", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -998,23 +1070,35 @@ var S_SHOW_OFFLINE = api.setting.bool("ShowOffline", true);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 300.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_OFF = 0xFF5A5A66;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
-var C_OFF    = 0xFF5A5A66;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var online = {};
@@ -1135,7 +1219,7 @@ function onRender2D() {
             count++;
         }
     }
-    api.render.text(x + 7.0, y + 7.0, "Friends", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Friends", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, count + "/" + rows.length, C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -1177,23 +1261,36 @@ var S_SIZE        = api.setting.number("Size", 40.0, 28.0, 80.0);
 var S_X           = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y           = api.setting.number("Y", 24.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
-var C_DIAL   = 0x1AFFFFFF;
-var C_NORTH  = 0xFFF87171;
+var C_DIAL = 0x1AFFFFFF;
+var C_NORTH = 0xFFFF5555;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var NAMES = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"];
@@ -1219,7 +1316,7 @@ function onRender2D() {
     var h = 34.0 + S_SIZE.getNumber() + 26.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Compass", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Compass", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0,
             directionName(api.player.getYaw()) + " " + Math.round(normalize(api.player.getYaw())) + "°",
             C_SUB, true);
@@ -1239,7 +1336,7 @@ function onRender2D() {
     api.render.text(nx - 2.0, ny - 10.0, "N", C_NORTH, true);
 
     // 中心箭头 = 当前朝向
-    api.render.triangle(cx, cy, 0.0, 7.0, C_ACCENT);
+    api.render.triangle(cx, cy, 0.0, 7.0, accent());
 
     var infoY = y + 34.0 + S_SIZE.getNumber() + 4.0;
     if (S_SHOW_ORIGIN.getBool()) {
@@ -1282,21 +1379,34 @@ var S_SHOW = api.setting.bool("ShowPanel", true);
 var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y    = api.setting.number("Y", 380.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var flashAt = 0;
@@ -1339,7 +1449,7 @@ function onRender2D() {
     var h = 22.0 + rows.length * 16.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Shortcuts", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Shortcuts", accent(), true);
     var recent = (api.util.time() - flashAt) < 1500.0;
     if (recent) {
         api.hud.textRight(x + w - 7.0, y + 7.0, "已发送", 0xFF4ADE80, true);
@@ -1351,7 +1461,7 @@ function onRender2D() {
         var rowY = y + 23.0 + i * 16.0;
         var pressed = recent && ("" + flashText) === rows[i].cmd;
         api.hud.keyCap(x + 7.0, rowY, 30.0, 13.0,
-                api.util.getKeyName(rows[i].key), pressed, C_ACCENT);
+                api.util.getKeyName(rows[i].key), pressed, accent());
         api.render.text(x + 43.0, rowY + 2.0, api.hud.trim(rows[i].cmd, w - 52.0), C_TEXT, true);
     }
 }
@@ -1374,24 +1484,34 @@ var S_SPIKE  = api.setting.number("SpikeMs", 80.0, 20.0, 500.0);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 420.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var samples = [];
@@ -1451,7 +1571,7 @@ function onRender2D() {
     var h = 54.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Lag", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Lag", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, "峰值 " + (Math.round(peak * 10) / 10) + "ms", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -1505,23 +1625,35 @@ var S_MAXW  = api.setting.number("MaxWidth", 200.0, 80.0, 600.0);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 460.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_CHIP = 0x1AFFFFFF;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
-var C_CHIP   = 0x1AFFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 function stripColors(text) {
@@ -1551,7 +1683,7 @@ function onRender2D() {
     var h = 22.0 + (hasMotd ? 11.0 : 0.0) + (S_COUNT.getBool() ? 16.0 : 0.0) + 17.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Server", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Server", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, api.server.getIp(), C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -1567,7 +1699,7 @@ function onRender2D() {
         api.hud.textRight(x + w - 7.0, cursor, current + "/" + max, C_TEXT, true);
         cursor += 10.0;
         var progress = max <= 0 ? 0.0 : (current / max);
-        api.hud.progressBar(x + 7.0, cursor, w - 14.0, 3.0, progress, C_TRACK, C_ACCENT);
+        api.hud.progressBar(x + 7.0, cursor, w - 14.0, 3.0, progress, C_TRACK, accent());
         cursor += 7.0;
     }
 
@@ -1601,25 +1733,34 @@ var S_COOL   = api.setting.number("CooldownMs", 4000.0, 500.0, 30000.0);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 500.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFFBBF24;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lastStage = {};
@@ -1710,7 +1851,7 @@ function onRender2D() {
     var h = 22.0 + low.length * 15.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Durability", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Durability", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, low.length + " 件", C_BAD, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -1747,21 +1888,34 @@ var S_COOL      = api.setting.number("CooldownMs", 5000.0, 500.0, 30000.0);
 var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y         = api.setting.number("Y", 540.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFF87171;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lastAt = 0;
@@ -1825,7 +1979,7 @@ function onRender2D() {
     var h = 50.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Low Health", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Low Health", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0,
             "阈值 " + S_THRESHOLD.getNumber(), C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
@@ -1834,14 +1988,14 @@ function onRender2D() {
     var cx = x + 24.0;
     var cy = y + 34.0;
     api.render.ring(cx, cy, 11.0 + wave * 1.5, 1.5,
-            api.color.withAlpha(C_ACCENT, Math.round(120 + 135 * wave)));
+            api.color.withAlpha(accent(), Math.round(120 + 135 * wave)));
     api.hud.textCenter(cx, cy - 4.0, (Math.round(health * 10) / 10) + "", C_TEXT, true);
 
     var ratio = maxHealth <= 0 ? 0.0 : health / maxHealth;
     api.render.text(x + 44.0, y + 26.0, "生命值", C_SUB, true);
     api.hud.textRight(x + w - 7.0, y + 26.0,
             (Math.round(health * 10) / 10) + " / " + (Math.round(maxHealth * 10) / 10), C_TEXT, true);
-    api.hud.progressBar(x + 44.0, y + 37.0, w - 51.0, 3.5, ratio, 0x33FFFFFF, C_ACCENT);
+    api.hud.progressBar(x + 44.0, y + 37.0, w - 51.0, 3.5, ratio, 0x33FFFFFF, accent());
 }
 </p>
   </div>
@@ -1865,21 +2019,34 @@ var S_COOL  = api.setting.number("CooldownMs", 1500.0, 200.0, 20000.0);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 580.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lastText = "";
@@ -1962,7 +2129,7 @@ function onRender2D() {
     var h = 44.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Scoreboard", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Scoreboard", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, changes + " 次变化", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -1988,23 +2155,36 @@ var S_SHOW = api.setting.integer("TopTypes", 3, 1, 8);
 var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y    = api.setting.number("Y", 620.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
-var C_OUT    = 0xFF6C8CFF;
-var C_IN     = 0xFF4ADE80;
+var C_IN = 0xFF4ADE80;
+var C_OUT = 0xFF6C8CFF;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var sent = 0;
@@ -2032,10 +2212,11 @@ function onPacket(event) {
     if (packet === null || packet === undefined) {
         return;
     }
-    var name = "" + api.packet.getPacketName(packet);
-    if (api.packet.isSending(packet)) {
+    // 注意：isSending / isReceiving 收的是**事件**，不是封包本身
+    var name = "" + api.packet.getPacketName(event);
+    if (api.packet.isSending(event)) {
         sent++;
-    } else if (api.packet.isReceiving(packet)) {
+    } else if (api.packet.isReceiving(event)) {
         received++;
     } else {
         return;
@@ -2082,7 +2263,7 @@ function onRender2D() {
     var h = 40.0 + limit * 10.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Packets", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Packets", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, (sentRate + receivedRate) + "/s", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -2107,7 +2288,7 @@ function onRender2D() {
     for (i = 0; i < history.length; i++) {
         var barH = graphH * (history[i] / max);
         api.render.roundedRect(graphX + i * (barW + 1.0), graphY + graphH - barH,
-                barW, barH, 1.0, api.color.withAlpha(C_ACCENT, 200));
+                barW, barH, 1.0, api.color.withAlpha(accent(), 200));
     }
 
     for (i = 0; i < limit; i++) {
@@ -2138,22 +2319,34 @@ var S_TOOL   = api.setting.bool("CountTools", true);
 var S_X      = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y      = api.setting.number("Y", 660.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var counts = { blocks: 0, food: 0, weapons: 0, tools: 0 };
@@ -2222,7 +2415,7 @@ function onRender2D() {
     var h = 22.0 + rows.length * 13.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Inventory", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Inventory", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, total + " 件", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -2231,7 +2424,7 @@ function onRender2D() {
         api.render.text(x + 7.0, rowY, rows[i].label, C_TEXT, true);
         api.hud.textRight(x + w - 7.0, rowY, "" + rows[i].value, C_TEXT, true);
         api.hud.progressBar(x + 7.0, rowY + 9.0, w - 14.0, 2.0,
-                rows[i].value / total, C_TRACK, C_ACCENT);
+                rows[i].value / total, C_TRACK, accent());
     }
 }
 </p>
@@ -2255,22 +2448,34 @@ var S_ONLY_GOOD = api.setting.bool("OnlyPositive", true);
 var S_X       = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y       = api.setting.number("Y", 700.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFFBBF24;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var warned = {};
@@ -2362,7 +2567,7 @@ function onRender2D() {
     var h = 22.0 + rows.length * 15.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Expiring", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Expiring", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, rows.length + " 个", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -2370,9 +2575,9 @@ function onRender2D() {
         var rowY = y + 23.0 + i * 15.0;
         api.render.text(x + 7.0, rowY, api.hud.trim(rows[i].name, 90.0), C_TEXT, true);
         api.hud.textRight(x + w - 7.0, rowY,
-                Math.ceil(rows[i].seconds) + "s", C_ACCENT, true);
+                Math.ceil(rows[i].seconds) + "s", accent(), true);
         api.hud.progressBar(x + 7.0, rowY + 9.0, w - 14.0, 2.0,
-                rows[i].seconds / S_WARN.getNumber(), C_TRACK, C_ACCENT);
+                rows[i].seconds / S_WARN.getNumber(), C_TRACK, accent());
     }
 }
 </p>
@@ -2396,21 +2601,34 @@ var S_RANGE = api.setting.number("Range", 4.5, 1.0, 8.0);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 740.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var active = false;
@@ -2509,7 +2727,7 @@ function onRender2D() {
     card(x, y, w, h);
 
     var duration = (api.util.time() - startedAt) / 1000.0;
-    api.render.text(x + 7.0, y + 7.0, "Fight", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Fight", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, (Math.round(duration * 10) / 10) + "s", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -2539,21 +2757,34 @@ var S_MAX  = api.setting.integer("MaxShow", 3, 1, 10);
 var S_X    = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y    = api.setting.number("Y", 780.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x22FFFFFF;
-var C_ACCENT = 0xFFFF66CC;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    // 外发光 → 纵向渐变底 → 描边 → 左侧强调条 → 顶部高光
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var beds = [];
@@ -2651,7 +2882,7 @@ function onRender2D() {
     var h = 22.0 + limit * 12.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 7.0, y + 7.0, "Beds", C_ACCENT, true);
+    api.render.text(x + 7.0, y + 7.0, "Beds", accent(), true);
     api.hud.textRight(x + w - 7.0, y + 7.0, beds.length + " 张", C_SUB, true);
     api.hud.separator(x + 7.0, y + 18.0, w - 14.0, C_BORDER);
 
@@ -2664,7 +2895,7 @@ function onRender2D() {
         api.hud.textRight(x + w - 20.0, rowY,
                 (Math.round(row.distance * 10) / 10) + "m", C_SUB, true);
         api.render.triangle(x + w - 11.0, rowY + 4.0,
-                bearing(row.bed.x, row.bed.z) - 90.0, 4.5, C_ACCENT);
+                bearing(row.bed.x, row.bed.z) - 90.0, 4.5, accent());
     }
 }
 </p>
@@ -2690,24 +2921,34 @@ var S_MAX = api.setting.number("MaxSpeed", 12.0, 4.0, 40.0);
 var S_X   = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y   = api.setting.number("Y", 24.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFF6C8CFF;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lastX = 0.0;
@@ -2772,7 +3013,7 @@ function onRender2D() {
     var h = 58.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Speed", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Speed", accent(), true);
     var average = samples === 0 ? 0.0 : sum / samples;
     api.hud.textRight(x + w - 8.0, y + 7.0,
             "均 " + (Math.round(average * 10) / 10), C_SUB, true);
@@ -2820,24 +3061,34 @@ var S_SAFE  = api.setting.number("SafeFall", 3.0, 1.0, 10.0);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 92.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFFFF9F43;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
 
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var peakFall = 0.0;
@@ -2888,7 +3139,7 @@ function onRender2D() {
     var h = 52.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Fall Damage", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Fall Damage", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0,
             (Math.round(fall * 10) / 10) + " 格", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
@@ -2926,21 +3177,34 @@ var S_PERSIST = api.setting.bool("PersistBest", true);
 var S_X       = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y       = api.setting.number("Y", 148.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFFFF6B6B;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var streak = 0;
@@ -3006,15 +3270,15 @@ function onRender2D() {
     var h = 46.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Killstreak", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Killstreak", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0, "最高 " + best, C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
-    api.render.textScaled(x + 9.0, y + 22.0, "" + streak, C_ACCENT, 1.6, true);
+    api.render.textScaled(x + 9.0, y + 22.0, "" + streak, accent(), 1.6, true);
     api.render.text(x + 9.0 + 12.0 * ("" + streak).length, y + 30.0, "连杀", C_TEXT, true);
 
     var ratio = best <= 0 ? 0.0 : Math.min(1.0, streak / (best * 1.0));
-    api.hud.progressBar(x + 9.0, y + h - 5.0, w - 17.0, 2.0, ratio, C_TRACK, C_ACCENT);
+    api.hud.progressBar(x + 9.0, y + h - 5.0, w - 17.0, 2.0, ratio, C_TRACK, accent());
 }
 </p>
   </div>
@@ -3040,20 +3304,34 @@ function onRender2D() {
 var S_X = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y = api.setting.number("Y", 204.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFFF87171;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var hasDeath = false;
@@ -3118,14 +3396,14 @@ function onRender2D() {
     var h = 50.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Last Death", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Last Death", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0,
             Math.round((api.util.time() - deathAt) / 1000.0) + "s 前", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
     api.render.text(x + 9.0, y + 23.0, "伤害", C_SUB, true);
     api.render.textScaled(x + 34.0, y + 22.0, (Math.round(lastDamage * 10) / 10) + "",
-            C_ACCENT, 1.15, true);
+            accent(), 1.15, true);
     api.render.text(x + 92.0, y + 25.0, "点", C_SUB, true);
 
     var cause = causeText.length > 0 ? causeText : "未知（聊天里没有击杀信息）";
@@ -3156,21 +3434,35 @@ var S_LIGHT = api.setting.bool("ShowLight", true);
 var S_DIST  = api.setting.bool("ShowDistance", true);
 var S_OFF_Y = api.setting.number("OffsetY", 20.0, 0.0, 200.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFF7DD3FC;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
-var C_CHIP   = 0x1AFFFFFF;
+var C_CHIP = 0x1AFFFFFF;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 function onRender2D() {
@@ -3254,20 +3546,34 @@ var S_SHOW      = api.setting.integer("MaxShow", 4, 1, 12);
 var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y         = api.setting.number("Y", 260.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFFA78BFA;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var points = [];
@@ -3370,7 +3676,7 @@ function onRender2D() {
     var h = 22.0 + limit * 12.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Waypoints", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Waypoints", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0, points.length + " 个", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
@@ -3384,7 +3690,7 @@ function onRender2D() {
         api.hud.textRight(x + w - 20.0, rowY,
                 (Math.round(row.distance * 10) / 10) + "m", C_SUB, true);
         api.render.triangle(x + w - 11.0, rowY + 4.0,
-                bearing(row.point.x, row.point.z) - 90.0, 4.5, C_ACCENT);
+                bearing(row.point.x, row.point.z) - 90.0, 4.5, accent());
     }
 }
 </p>
@@ -3411,20 +3717,34 @@ var S_SHOW      = api.setting.bool("ShowPanel", true);
 var S_X         = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y         = api.setting.number("Y", 320.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFF34D399;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var lines = 0;
@@ -3477,7 +3797,7 @@ function onRender2D() {
     var h = 44.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Chat Log", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Chat Log", accent(), true);
     var kb = Math.round(api.file.size(fileName) / 102.4) / 10.0;
     api.hud.textRight(x + w - 8.0, y + 7.0, kb + " KB", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
@@ -3507,25 +3827,35 @@ var S_FRIEND_ONLY = api.setting.bool("FriendsOnly", false);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 360.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFF60A5FA;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_FRIEND = 0xFF34D399;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
 var C_GOOD   = 0xFF4ADE80;
 var C_WARN   = 0xFFFBBF24;
 var C_BAD    = 0xFFF87171;
-var C_FRIEND = 0xFF34D399;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var rows = [];
@@ -3590,7 +3920,7 @@ function onRender2D() {
     var h = 22.0 + limit * 15.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Nearby", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Nearby", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0, rows.length + " 人", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
@@ -3630,21 +3960,34 @@ var S_RANGE = api.setting.number("Range", 4.5, 1.0, 8.0);
 var S_X     = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y     = api.setting.number("Y", 420.0, 0.0, 2000.0);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFFFB7185;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
 var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var active = false;
@@ -3720,14 +4063,14 @@ function onRender2D() {
     var h = 50.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Damage", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Damage", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0, hits + " 刀", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
     api.render.text(x + 9.0, y + 23.0, api.hud.trim(targetName, w - 18.0), C_TEXT, true);
 
     api.render.textScaled(x + 9.0, y + 32.0, (Math.round(totalDamage * 10) / 10) + "",
-            C_ACCENT, 1.3, true);
+            accent(), 1.3, true);
     var average = hits <= 0 ? 0.0 : totalDamage / hits;
     api.hud.textRight(x + w - 8.0, y + 34.0,
             "均 " + (Math.round(average * 10) / 10) + " / 刀", C_SUB, true);
@@ -3754,20 +4097,34 @@ var S_X   = api.setting.number("X", 4.0, 0.0, 2000.0);
 var S_Y   = api.setting.number("Y", 480.0, 0.0, 2000.0);
 var S_HUD = api.setting.bool("Hud", true);
 
-var C_TOP    = 0xF01A1A20;
-var C_BOTTOM = 0xE60E0E12;
-var C_BORDER = 0x26FFFFFF;
-var C_ACCENT = 0xFF818CF8;
-var C_TEXT   = 0xFFF2F2F7;
-var C_SUB    = 0xFF9AA0B4;
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
 
 function card(x, y, w, h) {
-    api.render.shadow(x, y, w, h, 5.0, 3.0, 0x70000000);
-    api.render.roundedGradientRect(x, y, w, h, 5.0, C_TOP, C_BOTTOM);
-    api.render.roundedRectOutline(x, y, w, h, 5.0, C_BORDER);
-    api.render.roundedRect(x, y, 2.5, h, 1.25, C_ACCENT);
-    api.render.roundedGradientRect(x + 6.0, y + 1.0, w - 12.0, 1.0, 0.5,
-            api.color.withAlpha(C_ACCENT, 70), api.color.withAlpha(C_ACCENT, 0));
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
 }
 
 var ticks = 0;
@@ -3840,7 +4197,7 @@ function onRender2D() {
     var h = 22.0 + 3 * 16.0 + 6.0;
     card(x, y, w, h);
 
-    api.render.text(x + 9.0, y + 7.0, "Session", C_ACCENT, true);
+    api.render.text(x + 9.0, y + 7.0, "Session", accent(), true);
     api.hud.textRight(x + w - 8.0, y + 7.0, "本局", C_SUB, true);
     api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
 
@@ -3865,6 +4222,3929 @@ function onRender2D() {
         api.render.text(cx, cy, cells[i].label, C_SUB, true);
         api.hud.textRight(cx + colWidth - 6.0, cy, cells[i].value, C_TEXT, true);
     }
+}
+</p>
+  </div>
+
+  <div data-field="item-31" data-switch="on">
+    <h3 data-role="title">Scaffold</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  Scaffold.js  ——  自动搭桥（移植自 exposca ff old.java）
+ * =============================================================================
+ *  钩子: onUpdate / onRender2D / onRender3D
+ *
+ *  【模式】对应源的 Normal / Hold right click / Tower 三套模式表
+ *    NORMAL  普通：脚下缺块就补
+ *    SPRINT  冲刺：转向更激进，边走边补
+ *    LEGIT   只补「低于脚面」的格子，看起来像随手放
+ *    KEEP_Y  塔：跳跃时把 Y 锁在起跳高度，适合往上垒
+ *
+ *  【朝向】BACK = 背对目标（搭桥经典姿势）/ NORMAL = 面向目标 /
+ *          OFFSET = 面向目标再偏 N 度 / DIAGONAL = 吸附到最近的 45°
+ *
+ *  【放置方式】1.8.9 的 onPlayerRightClick 收的是「被点的那一格」，
+ *   所以要先找到一个实心邻居，再按「邻居 → 目标」的方向点它的面。
+ *   这一步和源里的 anchor/face 计算是同一个意思。
+ */
+var S_NORMAL   = api.setting.mode("Normal Mode", "NORMAL", "NORMAL,SPRINT,LEGIT,KEEP_Y");
+var S_HOLD     = api.setting.mode("Hold Right Click Mode", "NORMAL", "NORMAL,SPRINT,LEGIT,KEEP_Y");
+var S_TOWER    = api.setting.mode("Tower Mode", "NORMAL", "NORMAL,SPRINT,LEGIT,KEEP_Y");
+var S_ROT      = api.setting.mode("Rotation", "NORMAL", "BACK,NORMAL,OFFSET,DIAGONAL");
+var S_OFFSET   = api.setting.number("Offset Degrees", 15.0, 0.0, 90.0);
+var S_DELAY    = api.setting.number("Place Delay", 0.0, 0.0, 500.0);
+var S_REACH    = api.setting.number("Reach", 4.5, 3.0, 6.0);
+var S_JUMP_S   = api.setting.integer("Straight Jump Blocks", 0, 0, 3);
+var S_JUMP_D   = api.setting.integer("Diagonal Jump Blocks", 0, 0, 3);
+var S_AUTOITEM = api.setting.bool("Auto Item", true);
+var S_DOWN     = api.setting.bool("Down Place", false);
+var S_HUMANIZE = api.setting.bool("Humanize", true);
+var S_ESP      = api.setting.bool("Esp", true);
+var S_HUD      = api.setting.bool("Hud", true);
+var S_X        = api.setting.number("X", 4.0, 0.0, 2000.0);
+var S_Y        = api.setting.number("Y", 520.0, 0.0, 2000.0);
+
+var C_BORDER = 0x40FFFFFF;
+var C_TEXT   = 0xFFE8E8EC;
+var C_SUB    = 0x99FFFFFF;
+var C_TRACK  = 0x26FFFFFF;
+var C_GOOD   = 0xFF4ADE80;
+var C_WARN   = 0xFFFBBF24;
+var C_BAD    = 0xFFF87171;
+
+// 客户端同款主题色（跟着 HUD 主题走，换主题脚本也跟着变）
+function accent() {
+    return api.hud.getThemeColor();
+}
+
+function accentAt(offset) {
+    return api.hud.getThemeColor(offset);
+}
+
+function card(x, y, w, h) {
+    // 直接复用客户端 HUD 的面板样式：圆角 3 / 0xC8101014 底 / 0x40FFFFFF 描边
+    api.hud.panel(x, y, w, h);
+}
+
+function header(x, y, w, title, meta) {
+    api.render.text(x + 7, y + 6, title, accent(), true);
+    if (meta !== null && meta !== undefined && ("" + meta).length > 0) {
+        api.hud.textRight(x + w - 7, y + 6, "" + meta, C_SUB, true);
+    }
+    api.hud.separator(x + 7, y + 17, w - 14, 0x22FFFFFF);
+}
+
+// 邻居方向 → 要点的那一面（邻居在 target + d，面朝反方向）
+var DIRS = [
+    { dx: 0, dy: -1, dz: 0, face: "UP" },
+    { dx: 0, dy: 1, dz: 0, face: "DOWN" },
+    { dx: 0, dy: 0, dz: -1, face: "SOUTH" },
+    { dx: 0, dy: 0, dz: 1, face: "NORTH" },
+    { dx: -1, dy: 0, dz: 0, face: "EAST" },
+    { dx: 1, dy: 0, dz: 0, face: "WEST" }
+];
+
+var target = null;
+var placed = 0;
+var lastPlaceAt = 0;
+var placedSinceJump = 0;
+var modeName = "NORMAL";
+
+function onEnable() {
+    target = null;
+    placed = 0;
+    lastPlaceAt = 0;
+    placedSinceJump = 0;
+}
+
+function onDisable() {
+    target = null;
+}
+
+function holdingBlock() {
+    return api.player.isHoldingBlock();
+}
+
+function switchToBlock() {
+    var i;
+    for (i = 0; i < 9; i++) {
+        var stack = api.inventory.getHotbarStack(i);
+        if (stack !== null && stack.isValid() && stack.isBlock()) {
+            api.inventory.switchToSlot(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+function currentMode() {
+    // 用物理按键判定（源里的 isPhysicalDown）：脚本注入的按键不算数
+    if (api.key.isPhysicallyDown("jump")) {
+        return S_TOWER.getMode();
+    }
+    if (api.key.isPhysicallyDown("use")) {
+        return S_HOLD.getMode();
+    }
+    return S_NORMAL.getMode();
+}
+
+function moving() {
+    return api.key.isForward() || api.key.isBack() || api.key.isLeft() || api.key.isRight();
+}
+
+function diagonal() {
+    var forward = api.key.isForward() || api.key.isBack();
+    var strafe = api.key.isLeft() || api.key.isRight();
+    return forward && strafe;
+}
+
+/** 目标格是否压在玩家身上（放下去会把自己卡住）。 */
+function overlapsPlayer(x, y, z) {
+    var minX = api.player.getBoxMinX();
+    var maxX = api.player.getBoxMaxX();
+    var minY = api.player.getBoxMinY();
+    var maxY = api.player.getBoxMaxY();
+    var minZ = api.player.getBoxMinZ();
+    var maxZ = api.player.getBoxMaxZ();
+    return maxX > x && minX < x + 1.0
+        && maxY > y && minY < y + 1.0
+        && maxZ > z && minZ < z + 1.0;
+}
+
+/** 找一个能贴上去的实心邻居；找不到返回 null。 */
+function anchorFor(x, y, z) {
+    var i;
+    for (i = 0; i < DIRS.length; i++) {
+        var dir = DIRS[i];
+        if (api.block.isSolid(x + dir.dx, y + dir.dy, z + dir.dz)) {
+            return {
+                x: x + dir.dx,
+                y: y + dir.dy,
+                z: z + dir.dz,
+                face: dir.face,
+                target: { x: x, y: y, z: z }
+            };
+        }
+    }
+    return null;
+}
+
+function findTarget() {
+    var px = Math.floor(api.player.getX());
+    var pz = Math.floor(api.player.getZ());
+    var baseY = Math.floor(api.player.getY()) - 1;
+    var reach = S_REACH.getNumber();
+    var best = null;
+    var bestDistance = 1e9;
+    var dy;
+    for (dy = 0; dy >= -3; dy--) {
+        var dx;
+        for (dx = -2; dx <= 2; dx++) {
+            var dz;
+            for (dz = -2; dz <= 2; dz++) {
+                var x = px + dx;
+                var y = baseY + dy;
+                var z = pz + dz;
+                if (!api.block.isReplaceable(x, y, z)) {
+                    continue;
+                }
+                if (overlapsPlayer(x, y, z)) {
+                    continue;
+                }
+                if (api.block.distanceTo(x, y, z) > reach) {
+                    continue;
+                }
+                var anchor = anchorFor(x, y, z);
+                if (anchor === null) {
+                    continue;
+                }
+                var distance = dx * dx + dy * dy + dz * dz;
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = anchor;
+                }
+            }
+        }
+    }
+    return best;
+}
+
+function aimAt(x, y, z) {
+    var cx = x + 0.5;
+    var cy = y + 0.5;
+    var cz = z + 0.5;
+    var dx = cx - api.player.getX();
+    var dy = cy - api.player.getEyeY();
+    var dz = cz - api.player.getZ();
+    var flat = Math.sqrt(dx * dx + dz * dz);
+    var yaw = Math.atan2(-dx, dz) * 180.0 / Math.PI;
+    var pitch = -Math.atan2(dy, flat) * 180.0 / Math.PI;
+
+    var style = S_ROT.getMode();
+    if (style === "BACK") {
+        yaw = yaw + 180.0;
+    } else if (style === "OFFSET") {
+        yaw = yaw + S_OFFSET.getNumber();
+    } else if (style === "DIAGONAL") {
+        yaw = Math.round(yaw / 45.0) * 45.0;
+    }
+    while (yaw > 180.0) { yaw -= 360.0; }
+    while (yaw < -180.0) { yaw += 360.0; }
+    if (S_HUMANIZE.getBool()) {
+        // 源里的 humanize：角度上叠一点高斯噪声，避免每 tick 都精确落在同一个角度
+        yaw = yaw + (Math.random() - 0.5) * 0.3;
+        pitch = pitch + (Math.random() - 0.5) * 0.3;
+    }
+    api.rotation.set(yaw, pitch);
+}
+
+function tryPlace(anchor) {
+    var now = api.util.time();
+    if ((now - lastPlaceAt) < S_DELAY.getNumber()) {
+        return false;
+    }
+    if (api.block.place(anchor.x, anchor.y, anchor.z, anchor.face)) {
+        lastPlaceAt = now;
+        placed++;
+        placedSinceJump++;
+        return true;
+    }
+    return false;
+}
+
+function onUpdate(event) {
+    if (!api.player.exists()) {
+        return;
+    }
+    target = null;
+    if (api.screen.isContainer()) {
+        return;
+    }
+    if (!holdingBlock()) {
+        if (!S_AUTOITEM.getBool() || !switchToBlock()) {
+            return;
+        }
+        return;
+    }
+
+    modeName = currentMode();
+    var anchor = findTarget();
+    if (anchor === null) {
+        return;
+    }
+    var ty = anchor.target.y;
+    var feet = Math.floor(api.player.getY()) - 1;
+    if (modeName === "LEGIT" && ty > feet && !S_DOWN.getBool()) {
+        return;
+    }
+    target = anchor.target;
+    aimAt(anchor.target.x, anchor.target.y, anchor.target.z);
+    tryPlace(anchor);
+
+    // 跳跃搭桥：走够 N 格就跳一次
+    if (moving() && api.player.isOnGround()) {
+        var need = diagonal() ? S_JUMP_D.getValue() : S_JUMP_S.getValue();
+        if (placedSinceJump >= need && need > 0) {
+            api.player.jump();
+            placedSinceJump = 0;
+        }
+    }
+}
+
+function onRender3D() {
+    if (!S_ESP.getBool() || target === null) {
+        return;
+    }
+    api.render.blockBox(target.x, target.y, target.z, 1.0, 108, 140, 255);
+}
+
+function onRender2D() {
+    if (!S_HUD.getBool() || !api.player.exists()) {
+        return;
+    }
+    var x = S_X.getNumber();
+    var y = S_Y.getNumber();
+    var w = 168.0;
+    var h = 46.0;
+    card(x, y, w, h);
+
+    api.render.text(x + 9.0, y + 7.0, "Scaffold", accent(), true);
+    api.render.text(x + w - 9.0 - api.render.textWidth(modeName), y + 7.0,
+            modeName, C_SUB, true);
+    api.hud.separator(x + 9.0, y + 18.0, w - 17.0, C_BORDER);
+
+    var held = api.item.getHeld();
+    var blocks = (held !== null && held.isValid() && held.isBlock()) ? held.getStackSize() : 0;
+    api.render.text(x + 9.0, y + 23.0, "方块", C_SUB, true);
+    api.hud.textRight(x + w / 2.0 - 4.0, y + 23.0,
+            "" + blocks, blocks > 0 ? C_TEXT : C_BAD, true);
+
+    api.render.text(x + w / 2.0 + 4.0, y + 23.0, "已放", C_SUB, true);
+    api.hud.textRight(x + w - 9.0, y + 23.0, "" + placed, C_TEXT, true);
+
+    api.render.text(x + 9.0, y + 34.0, target === null ? "无目标" : "目标已锁定", C_SUB, true);
+    api.hud.textRight(x + w - 9.0, y + 34.0, S_ROT.getMode(), C_SUB, true);
+}
+</p>
+  </div>
+
+  <div data-field="item-32" data-switch="on">
+    <h3 data-role="title">AutoTelly</h3>
+    <p  data-role="content">/*
+ * =============================================================================
+ *  AutoTelly.js  ——  AutoLegitTelly.java 的逐函数移植
+ * =============================================================================
+ *  源文件 2799 行 / 209 个函数，这里按**原函数名、原顺序、原逻辑**翻译。
+ *  唯一改动是把源脚本的 API 命名空间映射到 Spire：
+ *
+ *    modules.registerButton/getButton   → api.setting.bool / handle.getBool()
+ *    modules.registerSlider/getSlider   → api.setting.number|integer|mode
+ *    modules.isEnabled/enable/disable   → api.modules.*
+ *    player.getPosition/getLastPosition → pos() / lastPos()  (对象 {x,y,z})
+ *    client.getMotion                   → motion()
+ *    client.time()                      → api.util.time()
+ *    client.getPlayer()                 → api.player.exists()
+ *    client.getScreen().isEmpty()       → !api.screen.isOpen()
+ *    client.raycastBlock(r)             → api.raycast.trace(r)  (Hit 对象)
+ *    client.setForward/setStrafe        → api.move.setForward/setStrafe
+ *    client.setJump/setSneak/setSprinting → api.player.setJump/setSneaking/setSprinting
+ *    client.isSneak/isCreative          → api.player.isSneaking/isCreative
+ *    client.swingReset                  → api.player.resetSwing
+ *    client.placeBlock                  → api.block.place
+ *    client.print                       → api.chat.send
+ *    keybinds.getKeycode/isKeyDown/isPressed/isMouseDown/setPressed
+ *                                       → api.key.getBindCode/isKeyDown/isPressed/isMouseDown/press
+ *    inventory.getSlot/setSlot/getStackInSlot → api.inventory.getHeldSlot/switchToSlot/getStack
+ *    world.getBlockAt                   → blockAt(x,y,z)  (对象 {name,replaceable,solid})
+ *    render.getFontWidth/text           → api.render.textWidth/text
+ *    render.getPosition                 → 摄像机位置（api.camera.getPosition）
+ *    gl.*                               → api.render 的绘制原语
+ *
+ *  钩子映射：onLoad→onLoad, onEnable→onEnable, onDisable→onDisable,
+ *  onWorldJoin→onWorldLoad, onPreUpdate→onUpdate, onRenderWorld→onRender3D,
+ *  onRenderTick→onRender2D, onKey/onMouse→onKey/onLeftClick/onRightClick,
+ *  onPacketSent/onPacketReceived→onPacket, onPostPlayerInput→onMoveInput。
+ */
+// ═══════════════════════════════════════════════════════════════════════════
+//  状态（与源文件一一对应）
+// ═══════════════════════════════════════════════════════════════════════════
+
+var S_AUTO_SWAP   = api.setting.bool("Auto Swap", true);
+var S_SAFEWALK    = api.setting.bool("Disable SafeWalk", true);
+var S_SHOW_HITBOX = api.setting.bool("Show Activation Hitbox", false);
+var S_TARGET_BOX  = api.setting.bool("Show Target Box", true);
+var S_DEBUG       = api.setting.bool("Debug", false);
+var S_START_ON_ENABLE = api.setting.bool("Start On Enable", true);
+var S_MANUAL_KEY  = api.setting.integer("Manual Key", 45, 0, 255);
+
+var armed = false;
+var running = false;
+var activatePromptAt = 0;
+var promptBrokeAt = 0;
+var promptAlpha = 0.0;
+var promptFadeLastAt = 0;
+var promptFadeRgb = 0xFF5555;
+var hitboxLastPos = null;
+var hitboxLastFace = -1;
+var activationMovementHeld = false;
+var antiSwayTapUsed = false;
+var cancelledGhostBlocks = {};
+var tellyAutoPlaceWindow = false;
+var autoPlaceDebugActive = false;
+var safeWalkStateCaptured = false;
+var safeWalkWasEnabled = false;
+
+var setupTick = 0;
+var cyclePhase = 19;
+var baseYaw = 0.0;
+var travelX = 0;
+var travelZ = 0;
+var antiSwayLane = 0.0;
+var antiSwayYawOffset = 0.0;
+var bridgeLaneBlock = 0;
+var bridgeStartProgress = 0;
+var bridgeYLocked = -2147483648;
+var latestStraightPlacedPos = null;
+var firstTellyPlacementPending = false;
+var adaptiveAimValid = false;
+var adaptiveAimYaw = 0.0;
+var adaptiveAimPitch = 0.0;
+var adaptiveAimUpdatedAt = 0;
+var takeoverDetectionAt = 0;
+var takeoverCameraValid = false;
+var takeoverCameraYaw = 0.0;
+var takeoverCameraPitch = 0.0;
+var takeoverAccumulated = 0.0;
+var takeoverLastFrameAt = 0;
+var freezeLastTickAt = 0;
+var ignoreForwardUntilRelease = false;
+var ignoreBackUntilRelease = false;
+var ignoreLeftUntilRelease = false;
+var ignoreRightUntilRelease = false;
+var ignoreJumpUntilRelease = false;
+var ignoreSneakUntilRelease = false;
+var ignoreSprintUntilRelease = false;
+
+var rotationActive = false;
+var rotationStartedAt = 0;
+var rotationDuration = 50;
+var rotationStartYaw = 0.0;
+var rotationStartPitch = 0.0;
+var rotationTargetYaw = 0.0;
+var rotationTargetPitch = 0.0;
+var scriptedRotationYaw = 0.0;
+var scriptedRotationPitch = 0.0;
+
+var SENSITIVITY_QUANTUM = 0.03404715;
+var YAW_NUDGE_PATTERN = [0, 1, -1, 2, -2];
+var rotationStepCounter = 0;
+var ACTIVATION_ACROSS_MIN = 0.38;
+var ACTIVATION_ACROSS_MAX = 0.65;
+var ACTIVATION_HEIGHT_MIN = 0.25;
+var ACTIVATION_HEIGHT_MAX = 0.75;
+var ACTIVATION_YAW_TOLERANCE = 2.0;
+
+var yawCurve = [
+    91.68, 98.88, 78.94, 37.45, 1.61, -21.69, -33.98,
+    -35.80, -34.64, -33.85, -33.06, -31.55, -29.26, -26.65,
+    -24.19, -21.07, -18.84, -17.06, -8.87, 2.61, 41.94
+];
+
+var pitchCurve = [
+    64.31, 59.95, 60.57, 61.46, 60.64, 58.89, 56.91,
+    56.63, 58.65, 61.63, 64.20, 66.74, 68.69, 70.64,
+    73.01, 75.37, 77.46, 78.56, 78.90, 77.22, 72.25
+];
+
+var forwardCurve = [
+    1.0, 1.0, 0.0, 0.0, -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0
+];
+
+var strafeCurve = [
+    -1.0, -1.0, -1.0, -1.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  通用小工具（源文件里散落在各处的表达式，这里集中成函数）
+// ═══════════════════════════════════════════════════════════════════════════
+
+function pos() {
+    return { x: api.player.getX(), y: api.player.getY(), z: api.player.getZ() };
+}
+
+function lastPos() {
+    return { x: api.player.getLastX(), y: api.player.getLastY(), z: api.player.getLastZ() };
+}
+
+function motion() {
+    return { x: api.player.getMotionX(), y: api.player.getMotionY(), z: api.player.getMotionZ() };
+}
+
+function blockAt(x, y, z) {
+    var raw = "" + api.world.getBlockName(x, y, z);
+    var name = raw.indexOf("minecraft:") === 0 ? raw.substring(10) : raw;
+    return {
+        name: name,
+        replaceable: api.world.isReplaceable(x, y, z),
+        solid: api.world.isSolid(x, y, z)
+    };
+}
+
+function blockNameAt(x, y, z) {
+    return blockAt(x, y, z).name;
+}
+
+function isReplaceableName(name, includeLiquid) {
+    var list = ["air", "tallgrass", "deadbush", "double_plant", "vine", "fire", "snow_layer",
+        "yellow_flower", "red_flower", "sapling", "brown_mushroom", "red_mushroom",
+        "wheat", "carrots", "potatoes", "reeds", "nether_wart", "torch", "redstone_torch",
+        "unlit_redstone_torch", "redstone_wire", "rail", "golden_rail", "detector_rail",
+        "activator_rail", "lever", "stone_button", "wooden_button", "tripwire", "tripwire_hook",
+        "standing_sign", "wall_sign", "standing_banner", "wall_banner",
+        "stone_pressure_plate", "wooden_pressure_plate", "light_weighted_pressure_plate",
+        "heavy_weighted_pressure_plate", "portal", "web", "melon_stem", "pumpkin_stem"];
+    var i;
+    for (i = 0; i < list.length; i++) {
+        if (list[i] === name) {
+            return true;
+        }
+    }
+    if (includeLiquid) {
+        return name === "water" || name === "flowing_water" || name === "lava" || name === "flowing_lava";
+    }
+    return false;
+}
+
+function posFromVec(v) {
+    if (v === null || v === undefined) {
+        return null;
+    }
+    return [Math.floor(v.x), Math.floor(v.y), Math.floor(v.z)];
+}
+
+function faceFromName(name) {
+    var value = ("" + name).toUpperCase();
+    if (value === "DOWN") { return 0; }
+    if (value === "UP") { return 1; }
+    if (value === "NORTH") { return 2; }
+    if (value === "SOUTH") { return 3; }
+    if (value === "WEST") { return 4; }
+    if (value === "EAST") { return 5; }
+    return -1;
+}
+
+function faceName(face) {
+    if (face === 0) { return "down"; }
+    if (face === 1) { return "up"; }
+    if (face === 2) { return "north"; }
+    if (face === 3) { return "south"; }
+    if (face === 4) { return "west"; }
+    if (face === 5) { return "east"; }
+    return "up";
+}
+
+var FDX = [0, 0, 0, 0, -1, 1];
+var FDY = [-1, 1, 0, 0, 0, 0];
+var FDZ = [0, 0, -1, 1, 0, 0];
+
+function offsetPos(position, face) {
+    if (position === null) {
+        return null;
+    }
+    return [position[0] + FDX[face], position[1] + FDY[face], position[2] + FDZ[face]];
+}
+
+function tellyWrapAngle(angle) {
+    var value = angle;
+    while (value > 180.0) { value -= 360.0; }
+    while (value < -180.0) { value += 360.0; }
+    return value;
+}
+
+function clamp(value, min, max) {
+    if (value < min) { return min; }
+    if (value > max) { return max; }
+    return value;
+}
+
+function sld(name) {
+    if (name === "Auto Swap") { return S_AUTO_SWAP.getBool() ? 1.0 : 0.0; }
+    if (name === "Disable SafeWalk") { return S_SAFEWALK.getBool() ? 1.0 : 0.0; }
+    return 0.0;
+}
+
+function btn(name) {
+    if (name === "Auto swap") { return S_AUTO_SWAP.getBool(); }
+    if (name === "Disable SafeWalk") { return S_SAFEWALK.getBool(); }
+    if (name === "Show activation hitbox") { return S_SHOW_HITBOX.getBool(); }
+    return false;
+}
+
+function isUsableBlockStack(stack) {
+    if (stack === null || stack === undefined || !stack.isValid()) {
+        return false;
+    }
+    return stack.isBlock();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  生命周期
+// ═══════════════════════════════════════════════════════════════════════════
+
+function onLoad() {
+    api.log("AutoTelly 已装载（逐函数移植 AutoLegitTelly）");
+}
+
+function onEnable() {
+    autoPlaceOnEnable();
+    if (S_START_ON_ENABLE.getBool()) {
+        armAutomation();
+    }
+}
+
+function onDisable() {
+    stopAutomation(false);
+    autoPlaceOnDisable();
+}
+
+function onWorldLoad(entity) {
+    if (api.player.exists()) {
+        stopAutomation(false);
+    }
+    autoPlaceOnWorldJoin(entity);
+}
+
+function onUpdate() {
+    onPreMotion();
+    enforceSafeWalkDisabledForRun();
+    if (running) {
+        api.key.press("attack", false);
+        applySmoothedRotation();
+    }
+
+    if (armed && !running) {
+        updateActivationPrompt();
+    }
+
+    if (!running) {
+        return;
+    }
+
+    var freezeNow = api.util.time();
+    if (freezeLastTickAt !== 0 && (freezeNow - freezeLastTickAt) > 300) {
+        stopAutomation(true);
+        return;
+    }
+    freezeLastTickAt = freezeNow;
+
+    if (!api.player.exists() || api.player.isDead() || api.player.getFallDistance() > 7.0) {
+        stopAutomation(true);
+        return;
+    }
+    handleAutoSwap();
+    if (!api.player.isHoldingBlock()) {
+        stopAutomation(true);
+        return;
+    }
+    if (firstTellyPlacementPending) {
+        updateAdaptivePlacementAim();
+    }
+
+    autoPlaceOnPreUpdate();
+    if (firstTellyPlacementPending) {
+        updateAdaptivePlacementAim();
+    }
+    if (S_DEBUG.getBool() && (placementTick() % 20) === 0) {
+        printStatus((cachedCandidate !== null ? "&a有候选 " + posKey(candidatePlacedPos(cachedCandidate))
+                : "&c无候选") + " 相位=" + cyclePhase);
+    }
+    onPostMotion();
+}
+
+function activationPitch() {
+    return 75.0;
+}
+
+function handleAutoSwap() {
+    if (!btn("Auto swap")) {
+        return;
+    }
+
+    var threshold = 5;
+    var held = api.item.getHeld();
+    var heldCount = isUsableBlockStack(held) ? held.getStackSize() : 0;
+    if (heldCount > threshold) {
+        return;
+    }
+
+    var bestSlot = -1;
+    var bestSize = heldCount;
+    var slot;
+    for (slot = 0; slot <= 8; slot++) {
+        if (slot === api.inventory.getHeldSlot()) {
+            continue;
+        }
+        var stack = api.inventory.getStack(slot);
+        if (!isUsableBlockStack(stack)) {
+            continue;
+        }
+        if (stack.getStackSize() > bestSize) {
+            bestSize = stack.getStackSize();
+            bestSlot = slot;
+        }
+    }
+
+    if (bestSlot !== -1) {
+        api.inventory.switchToSlot(bestSlot);
+    }
+}
+
+function activationPromptReady() {
+    return activatePromptAt !== 0 && (api.util.time() - activatePromptAt) >= 1000;
+}
+
+function activationSuppressUse() {
+    return activatePromptAt !== 0 && (api.util.time() - activatePromptAt) >= 850;
+}
+
+function updateActivationPrompt() {
+    if (!api.player.exists() || api.screen.isOpen()) {
+        clearActivationPrompt();
+        return;
+    }
+
+    setActivationMovementHold(activationPromptReady() && api.key.isMouseDown(1));
+
+    var lookingDown = api.player.getPitch() >= activationPitch();
+    var atEdge = lookingDown && isLookingAtEdge();
+
+    if (api.player.isSneaking() && atEdge) {
+        if (activatePromptAt === 0) {
+            activatePromptAt = api.util.time();
+        }
+        promptBrokeAt = 0;
+        if (activationSuppressUse()) {
+            api.key.press("use", false);
+        }
+        if (activationPromptReady() && api.key.isMouseDown(1)) {
+            disableSafeWalkForRun();
+            enforceSafeWalkDisabledForRun();
+        } else if (safeWalkStateCaptured) {
+            restoreSafeWalkState();
+        }
+        return;
+    }
+
+    if (activatePromptAt === 0) {
+        return;
+    }
+
+    if (!activationPromptReady()) {
+        clearActivationPrompt();
+        return;
+    }
+
+    if (promptBrokeAt === 0) {
+        rememberActivationPromptColor();
+        promptBrokeAt = api.util.time();
+    }
+    api.key.press("use", false);
+
+    if (!api.player.isSneaking() && api.key.isMouseDown(1) && isActivationYawAligned(api.player.getYaw())) {
+        rememberActivationPromptColor();
+        activatePromptAt = 0;
+        promptBrokeAt = 0;
+        beginAutomation();
+        if (!running) {
+            api.key.press("use", false);
+        }
+        return;
+    }
+
+    if ((api.util.time() - promptBrokeAt) > 300) {
+        clearActivationPrompt();
+    }
+}
+
+function clearActivationPrompt() {
+    rememberActivationPromptColor();
+    if (activationSuppressUse()) {
+        api.key.press("use", false);
+    }
+    activatePromptAt = 0;
+    promptBrokeAt = 0;
+    setActivationMovementHold(false);
+    if (!running) {
+        restoreSafeWalkState();
+    }
+}
+
+function rememberActivationPromptColor() {
+    if (activatePromptAt !== 0) {
+        promptFadeRgb = activationPromptReady() ? 0x55FF55 : 0xFF5555;
+    }
+}
+
+function travelDirectionFromYaw(yaw) {
+    var radians = yaw * Math.PI / 180.0;
+    var rawX = Math.sin(radians) - Math.cos(radians);
+    var rawZ = -Math.cos(radians) - Math.sin(radians);
+    if (Math.abs(rawX) >= Math.abs(rawZ)) {
+        return [rawX >= 0.0 ? 1 : -1, 0];
+    }
+    return [0, rawZ >= 0.0 ? 1 : -1];
+}
+
+function isLookingAtEdge() {
+    if (!isActivationYawAligned(api.player.getYaw())) {
+        return false;
+    }
+    var hit = api.raycast.trace(4.5);
+    if (hit === null || !hit.isBlock()) {
+        return false;
+    }
+
+    var face = faceFromName(hit.getSide());
+    if (face < 2) {
+        return false;
+    }
+    if (!isInActivationFaceCenter(face, hit)) {
+        return false;
+    }
+
+    var travel = travelDirectionFromYaw(api.player.getYaw());
+    var travelFace = travel[0] > 0 ? 5 : (travel[0] < 0 ? 4 : (travel[1] > 0 ? 3 : 2));
+    if (face !== travelFace) {
+        return false;
+    }
+
+    var blockPos = [hit.getBlockX(), hit.getBlockY(), hit.getBlockZ()];
+    if (!isPlayerOnActivationBlock(blockPos)) {
+        return false;
+    }
+    var aheadX = blockPos[0] + travel[0];
+    var aheadZ = blockPos[2] + travel[1];
+    if (!isReplaceableName(blockNameAt(aheadX, blockPos[1] + 1, aheadZ), false)) {
+        return false;
+    }
+
+    var playerPos = pos();
+    var lipDistance;
+    if (face === 5) {
+        lipDistance = (blockPos[0] + 1) - playerPos.x;
+    } else if (face === 4) {
+        lipDistance = playerPos.x - blockPos[0];
+    } else if (face === 3) {
+        lipDistance = (blockPos[2] + 1) - playerPos.z;
+    } else {
+        lipDistance = playerPos.z - blockPos[2];
+    }
+    return lipDistance <= 0.65;
+}
+
+function isActivationYawAligned(yaw) {
+    var nearestDiagonal = Math.round((yaw - 45.0) / 90.0) * 90.0 + 45.0;
+    return Math.abs(tellyWrapAngle(yaw - nearestDiagonal)) <= ACTIVATION_YAW_TOLERANCE;
+}
+
+function isPlayerOnActivationBlock(blockPos) {
+    if (blockPos === null) {
+        return false;
+    }
+    var playerPos = pos();
+    if (blockPos[1] !== Math.floor(playerPos.y - 0.01)) {
+        return false;
+    }
+    var centerX = blockPos[0] + 0.5;
+    var centerZ = blockPos[2] + 0.5;
+    return Math.abs(playerPos.x - centerX) <= 0.85
+        && Math.abs(playerPos.z - centerZ) <= 0.85;
+}
+
+function isInActivationFaceCenter(face, hit) {
+    if (hit === null) {
+        return false;
+    }
+    // 命中点在方块内的局部坐标
+    var localX = hit.getX() - hit.getBlockX();
+    var localY = hit.getY() - hit.getBlockY();
+    var localZ = hit.getZ() - hit.getBlockZ();
+    var acrossFace = (face === 4 || face === 5) ? localZ : localX;
+    if (face === 3 || face === 4) {
+        acrossFace = 1.0 - acrossFace;
+    }
+    return acrossFace >= ACTIVATION_ACROSS_MIN && acrossFace <= ACTIVATION_ACROSS_MAX
+        && localY >= ACTIVATION_HEIGHT_MIN && localY <= ACTIVATION_HEIGHT_MAX;
+}
+
+function onRender3D(partialTicks) {
+    // 目标框：优先画当前候选格，其次画最近一次放成功的格子
+    if (S_TARGET_BOX.getBool()) {
+        var boxPos = null;
+        if (cachedCandidate !== null) {
+            boxPos = candidatePlacedPos(cachedCandidate);
+        } else if (lastPlacedPos !== null) {
+            boxPos = lastPlacedPos;
+        }
+        if (boxPos !== null) {
+            api.render.blockBox(boxPos[0], boxPos[1], boxPos[2], 1.0, 52, 211, 153);
+        }
+    }
+    if (!btn("Show activation hitbox")) {
+        return;
+    }
+    if (!armed || running) {
+        return;
+    }
+    if (promptAlpha < 0.05) {
+        return;
+    }
+
+    if (activatePromptAt !== 0) {
+        var hit = api.raycast.trace(4.5);
+        if (hit !== null && hit.isBlock()) {
+            var face = faceFromName(hit.getSide());
+            if (face >= 2) {
+                hitboxLastPos = [hit.getBlockX(), hit.getBlockY(), hit.getBlockZ()];
+                hitboxLastFace = face;
+            }
+        }
+    }
+
+    if (hitboxLastPos === null || hitboxLastFace < 2) {
+        return;
+    }
+    drawActivationFaceRegion(hitboxLastPos, hitboxLastFace);
+}
+
+function drawActivationFaceRegion(blockPos, face) {
+    var yMin = blockPos[1] + ACTIVATION_HEIGHT_MIN;
+    var yMax = blockPos[1] + ACTIVATION_HEIGHT_MAX;
+    var x1, z1, x2, z2;
+
+    if (face === 5) {
+        x1 = blockPos[0] + 1.005;
+        x2 = x1;
+        z1 = blockPos[2] + ACTIVATION_ACROSS_MIN;
+        z2 = blockPos[2] + ACTIVATION_ACROSS_MAX;
+    } else if (face === 4) {
+        x1 = blockPos[0] - 0.005;
+        x2 = x1;
+        z1 = blockPos[2] + (1.0 - ACTIVATION_ACROSS_MAX);
+        z2 = blockPos[2] + (1.0 - ACTIVATION_ACROSS_MIN);
+    } else if (face === 3) {
+        z1 = blockPos[2] + 1.005;
+        z2 = z1;
+        x1 = blockPos[0] + (1.0 - ACTIVATION_ACROSS_MAX);
+        x2 = blockPos[0] + (1.0 - ACTIVATION_ACROSS_MIN);
+    } else {
+        z1 = blockPos[2] - 0.005;
+        z2 = z1;
+        x1 = blockPos[0] + ACTIVATION_ACROSS_MIN;
+        x2 = blockPos[0] + ACTIVATION_ACROSS_MAX;
+    }
+
+    var r = (promptFadeRgb >> 16) & 0xFF;
+    var g = (promptFadeRgb >> 8) & 0xFF;
+    var b = promptFadeRgb & 0xFF;
+    var fillAlpha = Math.round(60.0 * promptAlpha);
+    var lineAlpha = Math.round(220.0 * promptAlpha);
+    if (fillAlpha < 4) { fillAlpha = 4; }
+    if (lineAlpha < 16) { lineAlpha = 16; }
+
+    var fill = (fillAlpha * 16777216) + (r * 65536) + (g * 256) + b;
+    var line = (lineAlpha * 16777216) + (r * 65536) + (g * 256) + b;
+
+    // 源里是 GL_QUADS 填充 + GL_LINE_LOOP 描边，顶点顺序完全一致
+    api.render.worldQuad(x1, yMin, z1, x2, yMin, z2, x2, yMax, z2, x1, yMax, z1, fill);
+    api.render.worldLine(x1, yMin, z1, x2, yMin, z2, 2.0, line);
+    api.render.worldLine(x2, yMin, z2, x2, yMax, z2, 2.0, line);
+    api.render.worldLine(x2, yMax, z2, x1, yMax, z1, 2.0, line);
+    api.render.worldLine(x1, yMax, z1, x1, yMin, z1, 2.0, line);
+}
+
+function drawActivatePrompt() {
+    if (promptAlpha < 0.05) {
+        return;
+    }
+    var text = "Activate?";
+    var alpha = Math.round(promptAlpha * 255.0);
+    if (alpha < 16) { alpha = 16; }
+    var color = (alpha * 16777216) + promptFadeRgb;
+    var sw = api.render.screenWidth();
+    var sh = api.render.screenHeight();
+    var x = sw / 2.0 - api.render.textWidth(text) / 2.0;
+    var y = sh / 2.0 + 10.0;
+    api.render.text(x, y, text, color, true);
+}
+
+function updateActivatePromptFade() {
+    var show = armed && !running && activatePromptAt !== 0;
+    if (show) {
+        rememberActivationPromptColor();
+    }
+
+    var now = api.util.time();
+    var elapsed = promptFadeLastAt === 0 ? 0 : Math.min(100, now - promptFadeLastAt);
+    promptFadeLastAt = now;
+    var step = elapsed / 200.0;
+    promptAlpha += show ? step : -step;
+    if (promptAlpha < 0.0) { promptAlpha = 0.0; }
+    if (promptAlpha > 1.0) { promptAlpha = 1.0; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  输入
+// ═══════════════════════════════════════════════════════════════════════════
+
+function onMouse(button, state) {
+    if (running) {
+        if (button === 0) {
+            api.key.press("attack", false);
+            return false;
+        }
+        if (button === 1) {
+            api.key.press("use", tellyAutoPlaceWindow);
+            return false;
+        }
+        return autoPlaceOnMouse(button, state);
+    }
+    if (armed && button === 1 && !state) {
+        setActivationMovementHold(false);
+    }
+    if (armed && activationSuppressUse() && button === 1) {
+        return false;
+    }
+    return true;
+}
+
+function onKey(event) {
+    var keyCode = event.getKey();
+    var dropCode = api.key.getBindCode("drop");
+    if (isDropProtected() && keyCode === dropCode) {
+        api.key.press("drop", false);
+        return;
+    }
+
+    if (!running && activationMovementHeld && keyCode === api.key.getBindCode("back")) {
+        api.key.press("back", true);
+        api.key.press("right", true);
+        return;
+    }
+    if (!running) {
+        return;
+    }
+    if (keyCode === api.key.getBindCode("sneak")) {
+        suppressSneakInput();
+        return;
+    }
+    clearInitialMovementHold(keyCode);
+    if (setupTick < 0
+            && isManualMovementKey(keyCode)
+            && !isInitialMovementHold(keyCode)
+            && !isScriptHeldKey(keyCode)) {
+        stopAutomation(true);
+    }
+}
+
+function setActivationMovementHold(hold) {
+    if (hold) {
+        activationMovementHeld = true;
+        api.key.press("back", true);
+        api.key.press("right", true);
+        return;
+    }
+    if (!activationMovementHeld) {
+        return;
+    }
+    activationMovementHeld = false;
+    api.key.press("back", api.key.isKeyDown(api.key.getBindCode("back")));
+    api.key.press("right", api.key.isKeyDown(api.key.getBindCode("right")));
+}
+
+function isScriptHeldKey(keyCode) {
+    if (keyCode === api.key.getBindCode("forward")) { return api.key.isPressed("forward"); }
+    if (keyCode === api.key.getBindCode("back")) { return api.key.isPressed("back"); }
+    if (keyCode === api.key.getBindCode("left")) { return api.key.isPressed("left"); }
+    if (keyCode === api.key.getBindCode("right")) { return api.key.isPressed("right"); }
+    if (keyCode === api.key.getBindCode("jump")) { return api.key.isPressed("jump"); }
+    if (keyCode === api.key.getBindCode("sprint")) { return api.key.isPressed("sprint"); }
+    return false;
+}
+
+function isManualMovementKey(keyCode) {
+    return keyCode === api.key.getBindCode("forward")
+        || keyCode === api.key.getBindCode("back")
+        || keyCode === api.key.getBindCode("left")
+        || keyCode === api.key.getBindCode("right")
+        || keyCode === api.key.getBindCode("jump")
+        || keyCode === api.key.getBindCode("sneak")
+        || keyCode === api.key.getBindCode("sprint");
+}
+
+function captureInitialMovementHolds() {
+    ignoreForwardUntilRelease = api.key.isKeyDown(api.key.getBindCode("forward"));
+    ignoreBackUntilRelease = api.key.isKeyDown(api.key.getBindCode("back"));
+    ignoreLeftUntilRelease = api.key.isKeyDown(api.key.getBindCode("left"));
+    ignoreRightUntilRelease = api.key.isKeyDown(api.key.getBindCode("right"));
+    ignoreJumpUntilRelease = api.key.isKeyDown(api.key.getBindCode("jump"));
+    ignoreSneakUntilRelease = api.key.isKeyDown(api.key.getBindCode("sneak"));
+    ignoreSprintUntilRelease = api.key.isKeyDown(api.key.getBindCode("sprint"));
+}
+
+function isInitialMovementHold(keyCode) {
+    if (keyCode === api.key.getBindCode("forward")) { return ignoreForwardUntilRelease; }
+    if (keyCode === api.key.getBindCode("back")) { return ignoreBackUntilRelease; }
+    if (keyCode === api.key.getBindCode("left")) { return ignoreLeftUntilRelease; }
+    if (keyCode === api.key.getBindCode("right")) { return ignoreRightUntilRelease; }
+    if (keyCode === api.key.getBindCode("jump")) { return ignoreJumpUntilRelease; }
+    if (keyCode === api.key.getBindCode("sneak")) { return ignoreSneakUntilRelease; }
+    if (keyCode === api.key.getBindCode("sprint")) { return ignoreSprintUntilRelease; }
+    return false;
+}
+
+function clearInitialMovementHold(keyCode) {
+    if (keyCode === api.key.getBindCode("forward")) { ignoreForwardUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("back")) { ignoreBackUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("left")) { ignoreLeftUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("right")) { ignoreRightUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("jump")) { ignoreJumpUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("sneak")) { ignoreSneakUntilRelease = false; }
+    if (keyCode === api.key.getBindCode("sprint")) { ignoreSprintUntilRelease = false; }
+}
+
+function clearInitialMovementHolds() {
+    ignoreForwardUntilRelease = false;
+    ignoreBackUntilRelease = false;
+    ignoreLeftUntilRelease = false;
+    ignoreRightUntilRelease = false;
+    ignoreJumpUntilRelease = false;
+    ignoreSneakUntilRelease = false;
+    ignoreSprintUntilRelease = false;
+}
+
+function detectManualCameraTakeover() {
+    if (!running || setupTick >= 0 || api.util.time() < takeoverDetectionAt) {
+        return false;
+    }
+    if (!api.player.exists()) {
+        return false;
+    }
+
+    var now = api.util.time();
+    var expectedYaw = scriptedRotationYaw;
+    var expectedPitch = scriptedRotationPitch;
+    if (!takeoverCameraValid) {
+        takeoverCameraValid = true;
+        takeoverCameraYaw = api.player.getYaw();
+        takeoverCameraPitch = api.player.getPitch();
+        takeoverAccumulated = 0.0;
+        takeoverLastFrameAt = now;
+        return false;
+    }
+
+    var yawInput = Math.abs(tellyWrapAngle(api.player.getYaw() - expectedYaw));
+    var pitchInput = Math.abs(api.player.getPitch() - expectedPitch);
+    var noiseFloor = SENSITIVITY_QUANTUM * 0.45;
+
+    var elapsed = Math.max(0, now - takeoverLastFrameAt);
+    takeoverLastFrameAt = now;
+    takeoverAccumulated -= (elapsed * 0.045);
+    if (takeoverAccumulated < 0.0) { takeoverAccumulated = 0.0; }
+    if (yawInput > noiseFloor || pitchInput > noiseFloor) {
+        takeoverAccumulated += (yawInput + pitchInput);
+    }
+
+    takeoverCameraYaw = api.player.getYaw();
+    takeoverCameraPitch = api.player.getPitch();
+
+    if (takeoverAccumulated >= 25.0) {
+        stopAutomation(true);
+        return true;
+    }
+    return false;
+}
+
+function onPacket(event) {
+    if (api.packet.isReceiving(event)) {
+        onPacketReceive(event);
+        return;
+    }
+    if (!api.packet.isSending(event)) {
+        return;
+    }
+    var name = "" + api.packet.getPacketName(event);
+
+    if (isDropProtected() && name.indexOf("C07") >= 0) {
+        if (("" + api.packet.getActionName(event)).indexOf("DROP") >= 0) {
+            api.packet.cancel(event);
+            return;
+        }
+    }
+    if (!running) {
+        return;
+    }
+    if (name.indexOf("C02") >= 0) {
+        if (("" + api.packet.getActionName(event)).indexOf("ATTACK") >= 0) {
+            api.packet.cancel(event);
+            return;
+        }
+    }
+    if (name.indexOf("C07") >= 0) {
+        if (("" + api.packet.getActionName(event)).indexOf("DESTROY") >= 0) {
+            api.packet.cancel(event);
+            return;
+        }
+    }
+    if (name.indexOf("C0B") >= 0) {
+        if (("" + api.packet.getActionName(event)).indexOf("START_SNEAKING") >= 0) {
+            api.packet.cancel(event);
+            return;
+        }
+    }
+
+    var placedTarget = null;
+    if (name.indexOf("C08") >= 0) {
+        var direction = api.packet.getPlacedDirection(event);
+        var placedPos = api.packet.getPlacedPosition(event);
+        if (direction !== 255 && placedPos !== null) {
+            placedTarget = offsetPos(placedPos, direction);
+            if (!placingViaModule && !isStraightTellyTarget(placedTarget) && !isNearPlayerColumn(placedTarget)) {
+                cancelledGhostBlocks[posKey(placedTarget)] = true;
+                api.packet.cancel(event);
+                return;
+            }
+        }
+    }
+
+    var allowed = autoPlaceOnPacketSent(event);
+    if (allowed && placedTarget !== null) {
+        cancelledGhostBlocks[posKey(placedTarget)] = false;
+        latestStraightPlacedPos = [placedTarget[0], placedTarget[1], placedTarget[2]];
+        if (firstTellyPlacementPending && setupTick < 0) {
+            firstTellyPlacementPending = false;
+            adaptiveAimValid = false;
+            adaptiveAimUpdatedAt = 0;
+        }
+    }
+    if (!allowed) {
+        api.packet.cancel(event);
+    }
+}
+
+function isActivationInProgress() {
+    return armed && !running && activatePromptAt !== 0;
+}
+
+function isDropProtected() {
+    return running || isActivationInProgress();
+}
+
+function onMoveInput() {
+    if (!running) {
+        return;
+    }
+    suppressSneakInput();
+    enforceSafeWalkDisabledForRun();
+
+    if (setupTick >= 0) {
+        if (setupTick < 12) {
+            var setupJump = setupTick >= 6;
+            applyMovement(-1.0, -1.0, setupJump, false);
+            applyUse(true);
+
+            if (setupTick === 11) {
+                setRotationTarget(baseYaw + yawCurve[19], pitchCurve[19], 50);
+            } else {
+                setRotationTarget(baseYaw, 74.52, 50);
+            }
+            setupTick++;
+            return;
+        }
+
+        setupTick = -1;
+        takeoverDetectionAt = api.util.time() + 125;
+        takeoverCameraValid = api.player.exists();
+        takeoverAccumulated = 0.0;
+        takeoverLastFrameAt = api.util.time();
+        if (api.player.exists()) {
+            takeoverCameraYaw = api.player.getYaw();
+            takeoverCameraPitch = api.player.getPitch();
+        }
+        captureInitialMovementHolds();
+        cyclePhase = 19;
+        firstTellyPlacementPending = true;
+        adaptiveAimValid = false;
+        clearCachedCandidate();
+        updateAdaptivePlacementAim();
+    }
+
+    var phase = cyclePhase;
+    var strafe = strafeCurve[phase];
+
+    var sprinting = phase === 0 || phase === 1;
+    var jumping = phase >= 1 && phase <= 19;
+    var use = phase >= 7;
+
+    applyMovement(forwardCurve[phase], strafe, jumping, sprinting);
+    applyUse(use);
+
+    var nextPhase = (phase + 1) % yawCurve.length;
+    setRotationTarget(baseYaw + yawCurve[nextPhase], pitchCurve[nextPhase], 50);
+    cyclePhase = nextPhase;
+}
+
+function onPreMotion() {
+    if (!running) {
+        return;
+    }
+    autoPlaceOnPreMotion();
+}
+
+function onRender2D(partialTicks) {
+    updateActivatePromptFade();
+    drawActivatePrompt();
+    if (!running) {
+        return;
+    }
+    if (detectManualCameraTakeover()) {
+        return;
+    }
+    applySmoothedRotation();
+    autoPlaceOnRenderTick(partialTicks);
+}
+
+function onPostMotion() {
+    if (!running) {
+        return;
+    }
+    autoPlaceOnPostMotion();
+}
+
+function onPacketReceive(event) {
+    if (api.packet.isReceiving(event)) {
+        var name = "" + api.packet.getPacketName(event);
+        if (running && name.indexOf("S08PacketPlayerPosLook") >= 0) {
+            stopAutomation(true);
+            return;
+        }
+        if (name.indexOf("S23") >= 0) {
+            var blockPos = api.packet.getBlockChangePosition(event);
+            if (blockPos !== null) {
+                cancelledGhostBlocks[posKey(blockPos)] = false;
+            }
+        }
+    }
+}
+
+function armAutomation() {
+    armed = true;
+    running = false;
+    activatePromptAt = 0;
+    promptBrokeAt = 0;
+    setupTick = 0;
+    cyclePhase = 19;
+    rotationActive = false;
+    activationMovementHeld = false;
+    printStatus("&eArmed. Sneak looking down, wait for green, hold rmb and release sneak");
+}
+
+function beginAutomation() {
+    if (!api.player.exists() || !api.player.isHoldingBlock()) {
+        printStatus("&cHold blocks before starting");
+        return;
+    }
+    if (!isActivationYawAligned(api.player.getYaw())) {
+        return;
+    }
+
+    disableSafeWalkForRun();
+    baseYaw = api.player.getYaw();
+    calculateTravelDirection(baseYaw);
+    var playerPos = pos();
+    antiSwayLane = travelX !== 0 ? playerPos.z : playerPos.x;
+    antiSwayYawOffset = 0.0;
+    antiSwayTapUsed = false;
+    cancelledGhostBlocks = {};
+    bridgeYLocked = Math.floor(api.player.getY()) - 1;
+    initializeStraightBridgeLane();
+    firstTellyPlacementPending = false;
+    adaptiveAimValid = false;
+    adaptiveAimUpdatedAt = 0;
+    setupTick = 0;
+    cyclePhase = 19;
+    armed = false;
+    running = true;
+    freezeLastTickAt = api.util.time();
+    activationMovementHeld = false;
+    tellyAutoPlaceWindow = true;
+    scriptedRotationYaw = api.player.getYaw();
+    scriptedRotationPitch = api.player.getPitch();
+    takeoverDetectionAt = 0;
+    takeoverCameraValid = false;
+    clearInitialMovementHolds();
+    resetControllerState();
+    api.key.press("attack", false);
+    applyMovement(-1.0, -1.0, false, false);
+    setRotationTarget(baseYaw, 74.52, 50);
+    applyUse(true);
+    printStatus("&aStarted");
+}
+
+function stopAutomation(turnOffButton) {
+    armed = false;
+    running = false;
+    setupTick = 0;
+    cyclePhase = 19;
+    rotationActive = false;
+    activationMovementHeld = false;
+    tellyAutoPlaceWindow = false;
+    autoPlaceDebugActive = false;
+    antiSwayYawOffset = 0.0;
+    antiSwayTapUsed = false;
+    firstTellyPlacementPending = false;
+    latestStraightPlacedPos = null;
+    bridgeYLocked = -2147483648;
+    adaptiveAimValid = false;
+    adaptiveAimUpdatedAt = 0;
+    scriptedRotationYaw = 0.0;
+    scriptedRotationPitch = 0.0;
+    takeoverDetectionAt = 0;
+    takeoverCameraValid = false;
+    takeoverCameraYaw = 0.0;
+    takeoverCameraPitch = 0.0;
+    takeoverAccumulated = 0.0;
+    takeoverLastFrameAt = 0;
+
+    try {
+        cancelledGhostBlocks = {};
+        clearInitialMovementHolds();
+        resetControllerState();
+        api.move.setForward(0.0);
+        api.move.setStrafe(0.0);
+        api.player.setJump(false);
+        api.player.setSprinting(false);
+        releaseMovementKeys();
+        restorePhysicalUse();
+        api.key.press("attack", api.key.isMouseDown(0));
+    } catch (ignored) {
+    }
+
+    restoreSafeWalkState();
+
+    freezeLastTickAt = 0;
+    armed = true;
+    activatePromptAt = 0;
+    promptBrokeAt = 0;
+    if (turnOffButton) {
+        printStatus("&eStopped. Sneak looking down to arm again");
+    }
+}
+
+function disableSafeWalkForRun() {
+    if (safeWalkStateCaptured) {
+        enforceSafeWalkDisabledForRun();
+        return;
+    }
+    if (!btn("Disable SafeWalk")) {
+        return;
+    }
+
+    try {
+        safeWalkWasEnabled = api.modules.isEnabled("SafeWalk");
+        safeWalkStateCaptured = true;
+        if (safeWalkWasEnabled) {
+            api.modules.disable("SafeWalk");
+        }
+    } catch (ignored) {
+        safeWalkStateCaptured = false;
+    }
+}
+
+function enforceSafeWalkDisabledForRun() {
+    if (!safeWalkStateCaptured) {
+        return;
+    }
+    try {
+        if (api.modules.isEnabled("SafeWalk")) {
+            api.modules.disable("SafeWalk");
+        }
+    } catch (ignored) {
+    }
+}
+
+function restoreSafeWalkState() {
+    if (!safeWalkStateCaptured) {
+        return;
+    }
+
+    var restoreEnabled = safeWalkWasEnabled;
+    safeWalkStateCaptured = false;
+    try {
+        var currentlyEnabled = api.modules.isEnabled("SafeWalk");
+        if (restoreEnabled && !currentlyEnabled) {
+            api.modules.enable("SafeWalk");
+        }
+        if (!restoreEnabled && currentlyEnabled) {
+            api.modules.disable("SafeWalk");
+        }
+    } catch (ignored) {
+    }
+}
+
+function printStatus(message) {
+    try {
+        api.chat.info("&bTelly &7| " + message);
+    } catch (ignored) {
+    }
+}
+
+function setRotationTarget(targetYaw, targetPitch, duration) {
+    if (!api.player.exists()) {
+        return;
+    }
+
+    applySmoothedRotation();
+    rotationStartYaw = api.player.getYaw();
+    rotationStartPitch = api.player.getPitch();
+    var correctedTargetYaw = targetYaw;
+    var adaptivePlacementTarget = running
+        && tellyAutoPlaceWindow
+        && firstTellyPlacementPending
+        && adaptiveAimValid
+        && (api.util.time() - adaptiveAimUpdatedAt) <= 125;
+    if (adaptivePlacementTarget) {
+        correctedTargetYaw = adaptiveAimYaw;
+        targetPitch = adaptiveAimPitch;
+    } else if (running) {
+        correctedTargetYaw += antiSwayYawOffset;
+    }
+
+    rotationStepCounter++;
+    correctedTargetYaw += SENSITIVITY_QUANTUM * YAW_NUDGE_PATTERN[rotationStepCounter % 5];
+
+    rotationTargetYaw = rotationStartYaw + tellyWrapAngle(correctedTargetYaw - rotationStartYaw);
+    rotationTargetPitch = clamp(targetPitch, -90.0, 90.0);
+    rotationStartedAt = api.util.time();
+    rotationDuration = Math.max(1, duration);
+    rotationActive = true;
+}
+
+function applySmoothedRotation() {
+    if (!rotationActive) {
+        return;
+    }
+    if (!api.player.exists()) {
+        return;
+    }
+
+    var progress = (api.util.time() - rotationStartedAt) / rotationDuration;
+    if (progress < 0.0) { progress = 0.0; }
+    if (progress > 1.0) { progress = 1.0; }
+
+    var desiredYaw = rotationStartYaw + (rotationTargetYaw - rotationStartYaw) * progress;
+    var desiredPitch = rotationStartPitch + (rotationTargetPitch - rotationStartPitch) * progress;
+    var quantizedYaw = quantizeFrom(rotationStartYaw, desiredYaw);
+    var quantizedPitch = quantizeFrom(rotationStartPitch, desiredPitch);
+
+    scriptedRotationYaw = quantizedYaw;
+    scriptedRotationPitch = clamp(quantizedPitch, -90.0, 90.0);
+    api.player.setYaw(scriptedRotationYaw);
+    api.player.setPitch(scriptedRotationPitch);
+    if (progress >= 1.0) {
+        rotationActive = false;
+    }
+}
+
+function quantizeFrom(origin, value) {
+    var steps = Math.round((value - origin) / SENSITIVITY_QUANTUM);
+    return origin + steps * SENSITIVITY_QUANTUM;
+}
+
+function applyMovement(forward, strafe, jumping, sprinting) {
+    var controlledForward = forward;
+    var controlledSprint = sprinting;
+
+    var correctedStrafe = strafe;
+    if (running) {
+        correctedStrafe = applyAntiSwayCorrection(controlledForward, strafe);
+    } else {
+        antiSwayYawOffset = 0.0;
+    }
+
+    api.key.press("forward", controlledForward > 0.03);
+    api.key.press("back", controlledForward < -0.03);
+    api.key.press("left", correctedStrafe > 0.5);
+    api.key.press("right", correctedStrafe < -0.5);
+    api.key.press("jump", jumping);
+    api.key.press("sprint", controlledSprint);
+    api.move.setForward(controlledForward);
+    api.move.setStrafe(correctedStrafe);
+    api.player.setJump(jumping);
+    api.player.setSneaking(false);
+    api.player.setSprinting(controlledSprint);
+}
+
+function suppressSneakInput() {
+    api.key.press("sneak", false);
+    api.player.setSneaking(false);
+}
+
+function calculateTravelDirection(yaw) {
+    var radians = yaw * Math.PI / 180.0;
+    var rawX = Math.sin(radians) - Math.cos(radians);
+    var rawZ = -Math.cos(radians) - Math.sin(radians);
+
+    if (Math.abs(rawX) >= Math.abs(rawZ)) {
+        travelX = rawX >= 0.0 ? 1 : -1;
+        travelZ = 0;
+    } else {
+        travelX = 0;
+        travelZ = rawZ >= 0.0 ? 1 : -1;
+    }
+}
+
+function initializeStraightBridgeLane() {
+    var playerPos = pos();
+    var startX = Math.floor(playerPos.x);
+    var startY = Math.floor(playerPos.y) - 1;
+    var startZ = Math.floor(playerPos.z);
+    bridgeLaneBlock = travelX !== 0 ? startZ : startX;
+    bridgeStartProgress = startX * travelX + startZ * travelZ;
+
+    var hit = api.raycast.trace(4.5);
+    if (hit !== null && hit.isBlock()) {
+        var hitPos = [hit.getBlockX(), hit.getBlockY(), hit.getBlockZ()];
+        var hitLane = travelX !== 0 ? hitPos[2] : hitPos[0];
+        var hitProgress = straightProgress(hitPos);
+        if (hitLane === bridgeLaneBlock
+                && Math.abs(hitPos[0] - startX) <= 2
+                && Math.abs(hitPos[2] - startZ) <= 2
+                && hitProgress < bridgeStartProgress) {
+            bridgeStartProgress = hitProgress;
+        }
+    }
+
+    latestStraightPlacedPos = [startX, startY, startZ];
+}
+
+function straightProgress(position) {
+    if (position === null) {
+        return -2147483648;
+    }
+    return position[0] * travelX + position[2] * travelZ;
+}
+
+function isStraightTellyTarget(position) {
+    if (!running || position === null) {
+        return true;
+    }
+    var lane = travelX !== 0 ? position[2] : position[0];
+    if (lane !== bridgeLaneBlock) {
+        return false;
+    }
+    return straightProgress(position) >= bridgeStartProgress;
+}
+
+function updateAdaptivePlacementAim() {
+    if (!firstTellyPlacementPending) {
+        return;
+    }
+    var candidate = cachedCandidate;
+    if (candidate !== null) {
+        var target = candidatePlacedPos(candidate);
+        var hitVec = candidateHitVec(candidate);
+        if (isStraightTellyTarget(target) && hitVec !== null) {
+            setAdaptiveAimToPoint(hitVec);
+            return;
+        }
+    }
+
+    var support = latestStraightPlacedPos !== null ? latestStraightPlacedPos : lastPlacedPos;
+    if (support === null || !isStraightTellyTarget(support)) {
+        return;
+    }
+    var face = travelX > 0 ? 5 : (travelX < 0 ? 4 : (travelZ > 0 ? 3 : 2));
+    var nextTarget = offsetPos(support, face);
+    if (!isStraightTellyTarget(nextTarget) || !api.world.isReplaceable(nextTarget[0], nextTarget[1], nextTarget[2])) {
+        return;
+    }
+    var fallbackHit = getSupportFaceHitVec(support, face, 0.5, 0.5);
+    setAdaptiveAimToPoint(fallbackHit);
+}
+
+function setAdaptiveAimToPoint(point) {
+    if (!api.player.exists() || point === null) {
+        return;
+    }
+    var playerPos = pos();
+    var eyeX = playerPos.x;
+    var eyeY = playerPos.y + api.player.getEyeHeight();
+    var eyeZ = playerPos.z;
+    var dx = point.x - eyeX;
+    var dy = point.y - eyeY;
+    var dz = point.z - eyeZ;
+    var horizontal = Math.sqrt(dx * dx + dz * dz);
+    if (horizontal < 1.0E-5 && Math.abs(dy) < 1.0E-5) {
+        return;
+    }
+
+    adaptiveAimYaw = Math.atan2(dz, dx) * 180.0 / Math.PI - 90.0;
+    adaptiveAimPitch = clamp(-Math.atan2(dy, horizontal) * 180.0 / Math.PI, -89.0, 89.0);
+    adaptiveAimUpdatedAt = api.util.time();
+    adaptiveAimValid = true;
+}
+
+function applyAntiSwayCorrection(forward, recordedStrafe) {
+    if (!api.player.exists()) {
+        return recordedStrafe;
+    }
+
+    var playerPos = pos();
+    var playerMotion = motion();
+    var lanePosition = travelX !== 0 ? playerPos.z : playerPos.x;
+    var laneVelocity = travelX !== 0 ? playerMotion.z : playerMotion.x;
+    var error = antiSwayLane - lanePosition;
+
+    if (Math.abs(error) < 0.015 && Math.abs(laneVelocity) < 0.008) {
+        antiSwayTapUsed = false;
+        antiSwayYawOffset *= 0.65;
+        if (Math.abs(antiSwayYawOffset) < 0.03) {
+            antiSwayYawOffset = 0.0;
+        }
+        return recordedStrafe;
+    }
+
+    var desiredLaneVelocity = error * 0.42 - laneVelocity * 0.78;
+    if (desiredLaneVelocity > 0.16) { desiredLaneVelocity = 0.16; }
+    if (desiredLaneVelocity < -0.16) { desiredLaneVelocity = -0.16; }
+    var velocityCorrection = desiredLaneVelocity - laneVelocity;
+
+    var radians = api.player.getYaw() * Math.PI / 180.0;
+    var sin = Math.sin(radians);
+    var cos = Math.cos(radians);
+    var yawLaneDerivative = travelX !== 0
+        ? -forward * sin + recordedStrafe * cos
+        : -forward * cos - recordedStrafe * sin;
+    var desiredYawOffset = 0.0;
+    if (Math.abs(yawLaneDerivative) >= 0.12) {
+        desiredYawOffset = (velocityCorrection * 0.55 / yawLaneDerivative) * 180.0 / Math.PI;
+    }
+    if (desiredYawOffset > 2.25) { desiredYawOffset = 2.25; }
+    if (desiredYawOffset < -2.25) { desiredYawOffset = -2.25; }
+    antiSwayYawOffset = antiSwayYawOffset * 0.60 + desiredYawOffset * 0.40;
+
+    var strafeLaneAxis = travelX !== 0 ? sin : cos;
+    var tapHelps = Math.abs(strafeLaneAxis) >= 0.20 && velocityCorrection * strafeLaneAxis > 0.0;
+    if (tapHelps
+            && !antiSwayTapUsed
+            && Math.abs(velocityCorrection) >= 0.03
+            && recordedStrafe < 0.5) {
+        antiSwayTapUsed = true;
+        return recordedStrafe + 1.0;
+    }
+
+    return recordedStrafe;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  常量（源文件原样）
+// ═══════════════════════════════════════════════════════════════════════════
+
+var FACE_HIT_OFFSETS = [0.5, 0.25, 0.75, 0.15, 0.85];
+var EXTENDED_FACE_HIT_OFFSETS = [0.5, 0.25, 0.75, 0.15, 0.85, 0.35, 0.65, 0.05, 0.95];
+var ALLOWED_PLACE_FACES = [2, 3, 4, 5, 1];
+var REPLACEABLE_BLOCKS = ["air", "water", "flowing_water", "lava", "flowing_lava", "fire", "tallgrass", "deadbush", "snow_layer", "double_plant", "vine"];
+var EXPERIMENTAL_REPLACEABLE_BLOCKS = [
+    "sapling", "yellow_flower", "red_flower", "brown_mushroom", "red_mushroom",
+    "wheat", "carrots", "potatoes", "nether_wart", "reeds"
+];
+var UNPLACEABLE_EXACT = [
+    "snow_layer", "web", "sapling", "daylight_detector", "beacon", "banner",
+    "end_portal_frame", "end_portal", "lever", "stone_button", "wooden_button",
+    "skull", "cactus", "double_plant", "waterlily", "carpet", "tripwire_hook",
+    "tallgrass", "yellow_flower", "red_flower", "flower_pot", "sign", "ladder",
+    "torch", "redstone_torch", "unlit_redstone_torch", "gravel", "clay", "sand",
+    "soul_sand", "chest", "trapped_chest", "ender_chest", "furnace", "lit_furnace",
+    "jukebox", "enchanting_table", "dropper", "dispenser", "hopper", "anvil",
+    "noteblock", "crafting_table", "mob_spawner", "brewing_stand", "bed"
+];
+var UNPLACEABLE_CONTAINS = [
+    "stairs", "slab", "fence", "pane", "rail", "door",
+    "torch", "pumpkin", "flower", "sapling", "banner", "button",
+    "skull", "web", "carpet", "cactus", "sign", "mushroom"
+];
+var INTERACTABLE_TYPES = [
+    "BlockTrapDoor", "BlockDoor", "BlockContainer", "BlockJukebox", "BlockFenceGate",
+    "BlockChest", "BlockEnderChest", "BlockEnchantmentTable", "BlockBrewingStand",
+    "BlockBed", "BlockDropper", "BlockDispenser", "BlockHopper", "BlockAnvil",
+    "BlockNote", "BlockWorkbench", "BlockFurnace", "BlockBeacon", "BlockMobSpawner",
+    "BlockDaylightDetector", "BlockCommandBlock", "BlockStandingSign", "BlockWallSign", "BlockSkull"
+];
+
+var currentClientTick = -2147483648;
+var placementEvaluationTick = -2147483648;
+var lastPlacementAttemptTick = -2147483648;
+var lastSuccessfulPlaceTick = -2147483648;
+var forceSuppressTick = -2147483648;
+var totalC08Counter = 0;
+var c08CounterAtTickBoundary = 0;
+var hasLastSentServerPos = false;
+var lastSentServerPosX = 0.0;
+var lastSentServerPosY = 0.0;
+var lastSentServerPosZ = 0.0;
+var cachedCandidate = null;
+var cachedCandidateTick = -2147483648;
+var cachedCandidateYaw = NaN;
+var cachedCandidatePitch = NaN;
+var candidateResolvedThisTick = false;
+var lastPlacedPos = null;
+var lastSupportPos = null;
+var lastSupportFace = -1;
+var cachedBelowTargets = null;
+var cachedBelowTargetsTick = -2147483648;
+var rejectedTargets = {};
+var forcedModeCheck = 0;
+var useSuppressed = false;
+var silentPitchActive = false;
+var silentPitch = 0.0;
+var placingViaModule = false;
+var manualC08InWindow = false;
+var autoPlacePlacing = false;
+var arbiterTick = -2147483648;
+var arbiterOwner = "";
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  auto-place 子系统
+// ═══════════════════════════════════════════════════════════════════════════
+
+function autoPlaceOnEnable() {
+    api.key.press("attack", false);
+    resetControllerState();
+}
+
+function autoPlaceOnDisable() {
+    resetControllerState();
+    restoreUseToPhysicalState();
+    api.key.press("attack", false);
+    autoPlacePlacing = false;
+    releaseExperimentalPlacementClaim();
+}
+
+function resetControllerState() {
+    currentClientTick = -2147483648;
+    placementEvaluationTick = -2147483648;
+    lastPlacementAttemptTick = -2147483648;
+    lastSuccessfulPlaceTick = -2147483648;
+    forceSuppressTick = -2147483648;
+    totalC08Counter = 0;
+    c08CounterAtTickBoundary = 0;
+    hasLastSentServerPos = false;
+    clearCachedCandidate();
+    lastPlacedPos = null;
+    lastSupportPos = null;
+    lastSupportFace = -1;
+    cachedBelowTargets = null;
+    cachedBelowTargetsTick = -2147483648;
+    rejectedTargets = {};
+    forcedModeCheck = 0;
+    useSuppressed = false;
+    silentPitchActive = false;
+    placingViaModule = false;
+    manualC08InWindow = false;
+}
+
+function autoPlaceOnWorldJoin(entity) {
+    if (api.player.exists()) {
+        resetControllerState();
+    }
+}
+
+function autoPlaceOnPreUpdate() {
+    if (!api.player.exists()) {
+        return;
+    }
+    syncPlacementTick();
+    if (placementEvaluationTick !== currentClientTick) {
+        placementEvaluationTick = currentClientTick;
+        processAutoPlaceTick();
+    }
+}
+
+function syncPlacementTick() {
+    var tick = placementTick();
+    if (tick === currentClientTick) {
+        return;
+    }
+    currentClientTick = tick;
+    candidateResolvedThisTick = false;
+    silentPitchActive = false;
+}
+
+function useExtendedSearch() {
+    return true;
+}
+
+function autoPlaceOnPostMotion() {
+    c08CounterAtTickBoundary = totalC08Counter;
+    manualC08InWindow = false;
+}
+
+function autoPlaceOnRenderTick(partialTicks) {
+    if (!api.player.exists()) {
+        return;
+    }
+    if (!isAutoPlaceActiveWindow()) {
+        return;
+    }
+    var heldStack = api.item.getHeld();
+    if (!isUsableBlockStack(heldStack)) {
+        return;
+    }
+
+    var basePitch = sanitizePitch(api.player.getPitch(), api.player.getPitch());
+    var candidate = resolveCandidateWithOffCursorSilentPitch(api.player.getYaw(), basePitch, heldStack);
+    if (candidate !== null) {
+        silentPitch = sanitizePitch(candidatePitch(candidate), basePitch);
+        silentPitchActive = true;
+        suppressUse();
+    }
+}
+
+function autoPlaceOnPreMotion() {
+    if (silentPitchActive && !manualC08InWindow) {
+        // 源里改的是 PlayerState.pitch；Spire 直接在 onUpdate 之前写静默俯仰
+        api.rotation.set(api.rotation.getYaw(), sanitizePitch(silentPitch, api.player.getPitch()));
+    }
+}
+
+function autoPlaceOnPacketSent(event) {
+    var name = "" + api.packet.getPacketName(event);
+    var packet = event.getPacket();
+    if (name.indexOf("C03") >= 0) {
+        if (api.packet.isMoving(event)) {
+            var motionPos = api.packet.getMotionPosition(event);
+            if (motionPos !== null) {
+                hasLastSentServerPos = true;
+                lastSentServerPosX = motionPos[0];
+                lastSentServerPosY = motionPos[1];
+                lastSentServerPosZ = motionPos[2];
+            }
+        }
+        return true;
+    }
+    if (name.indexOf("C08") >= 0) {
+        var direction = api.packet.getPlacedDirection(event);
+        if (direction === 255) {
+            if (shouldCancelAutoPlaceUseItem()) {
+                suppressUse();
+                return false;
+            }
+        } else if (api.packet.hasStack(event)) {
+            totalC08Counter++;
+            if (!placingViaModule) {
+                manualC08InWindow = true;
+            }
+        }
+    }
+    return true;
+}
+
+function autoPlaceOnMouse(button, state) {
+    if (!state || (button !== 0 && button !== 1)) {
+        return true;
+    }
+    if (button === 1 && shouldCancelAutoPlaceUseItem()) {
+        suppressUse();
+        return false;
+    }
+    if (!shouldSuppressManualClicksThisTick()) {
+        return true;
+    }
+    api.key.press("attack", false);
+    return false;
+}
+
+function shouldSuppressManualClicksThisTick() {
+    if (!isInGameContext()) {
+        return false;
+    }
+    return lastSuccessfulPlaceTick === currentClientTick || forceSuppressTick === currentClientTick;
+}
+
+function shouldCancelAutoPlaceUseItem() {
+    if (!isInGameContext()) {
+        return false;
+    }
+    if (shouldSuppressManualClicksThisTick()) {
+        return true;
+    }
+    return useSuppressed && silentPitchActive;
+}
+
+function suppressUse() {
+    api.key.press("use", false);
+    useSuppressed = true;
+}
+
+function restoreUseToPhysicalState() {
+    api.key.press("use", running ? tellyAutoPlaceWindow : api.key.isMouseDown(1));
+    useSuppressed = false;
+}
+
+function isInGameContext() {
+    return api.player.exists() && !api.screen.isOpen();
+}
+
+function areAutoPlaceConditionsMet() {
+    if (!tellyAutoPlaceWindow) {
+        return false;
+    }
+    return isUsableBlockStack(api.item.getHeld());
+}
+
+function isAutoPlaceActiveWindow() {
+    if (!isInGameContext()) {
+        return false;
+    }
+    if (api.modules.isEnabled("Scaffold")) {
+        return false;
+    }
+    if (!areAutoPlaceConditionsMet()) {
+        return false;
+    }
+    return isUsableBlockStack(api.item.getHeld());
+}
+
+function isUsableBlockStack(stack) {
+    if (stack === null || stack === undefined || !stack.isValid() || !stack.isBlock()) {
+        return false;
+    }
+    if (stack.getStackSize() <= 0) {
+        return false;
+    }
+    var name = ("" + stack.getRegistryName()).toLowerCase();
+    if (name.indexOf("minecraft:") === 0) {
+        name = name.substring(10);
+    }
+    var i;
+    for (i = 0; i < UNPLACEABLE_EXACT.length; i++) {
+        if (name === UNPLACEABLE_EXACT[i]) {
+            return false;
+        }
+    }
+    for (i = 0; i < UNPLACEABLE_CONTAINS.length; i++) {
+        if (name.indexOf(UNPLACEABLE_CONTAINS[i]) >= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isBlockBelowPlayerReplaceable() {
+    var playerPos = pos();
+    return isReplaceable(Math.floor(playerPos.x), Math.floor(playerPos.y) - 1, Math.floor(playerPos.z));
+}
+
+function placedInCurrentWindow() {
+    return totalC08Counter > c08CounterAtTickBoundary;
+}
+
+function claimExperimentalPlacementTick() {
+    if (arbiterTick === currentClientTick && arbiterOwner.length > 0 && arbiterOwner !== api.getName()) {
+        return false;
+    }
+    arbiterTick = currentClientTick;
+    arbiterOwner = api.getName();
+    return true;
+}
+
+function releaseExperimentalPlacementClaim() {
+    if (arbiterOwner.length === 0 || arbiterOwner !== api.getName()) {
+        return;
+    }
+    arbiterTick = -2147483648;
+    arbiterOwner = "";
+}
+
+function processAutoPlaceTick() {
+    pruneRejectedTargets();
+
+    if (lastPlacedPos !== null && !isSupportAvailable(lastPlacedPos[0], lastPlacedPos[1], lastPlacedPos[2])) {
+        lastPlacedPos = null;
+        lastSupportPos = null;
+        lastSupportFace = -1;
+    }
+
+    if (!isAutoPlaceActiveWindow()) {
+        clearCachedCandidate();
+        autoPlacePlacing = false;
+        if (useSuppressed) {
+            restoreUseToPhysicalState();
+        }
+        return;
+    }
+
+    var heldStack = api.item.getHeld();
+    if (!isUsableBlockStack(heldStack)) {
+        clearCachedCandidate();
+        if (useSuppressed) {
+            restoreUseToPhysicalState();
+        }
+        return;
+    }
+
+    if (!isBlockBelowPlayerReplaceable()) {
+        clearCachedCandidate();
+        if (useSuppressed) {
+            restoreUseToPhysicalState();
+        }
+        return;
+    }
+
+    var yaw = api.player.getYaw();
+    var basePitch = sanitizePitch(api.player.getPitch(), api.player.getPitch());
+    var candidate = resolveCandidateWithOffCursorSilentPitch(yaw, basePitch, heldStack);
+    if (candidate !== null) {
+        silentPitch = sanitizePitch(candidatePitch(candidate), basePitch);
+        silentPitchActive = true;
+        suppressUse();
+    } else if (useSuppressed && !placedInCurrentWindow() && lastPlacementAttemptTick !== currentClientTick) {
+        restoreUseToPhysicalState();
+    }
+
+    if (placedInCurrentWindow() || lastPlacementAttemptTick === currentClientTick) {
+        suppressUse();
+        return;
+    }
+
+    if (candidate === null) {
+        clearCachedCandidate();
+        return;
+    }
+
+    if (!claimExperimentalPlacementTick()) {
+        clearCachedCandidate();
+        return;
+    }
+
+    autoPlacePlacing = true;
+    lastPlacementAttemptTick = currentClientTick;
+
+    if (attemptPlacement(candidate, heldStack)) {
+        return;
+    }
+    if (placedInCurrentWindow()) {
+        return;
+    }
+
+    var retryYaw = api.player.getYaw();
+    var retryPitch = api.player.getPitch();
+    clearCachedCandidate();
+    var retryCandidate = findBelowPlacement(retryYaw, retryPitch, heldStack, api.util.time() + (useExtendedSearch() ? 4 : 2));
+    cacheCandidate(retryCandidate, retryYaw, retryPitch);
+    if (retryCandidate !== null) {
+        silentPitch = sanitizePitch(candidatePitch(retryCandidate), retryPitch);
+        silentPitchActive = true;
+        if (attemptPlacement(retryCandidate, heldStack)) {
+            return;
+        }
+    }
+    releaseExperimentalPlacementClaim();
+}
+
+function attemptPlacement(candidate, heldStack) {
+    if (candidate === null) {
+        return false;
+    }
+    var placedPos = candidatePlacedPos(candidate);
+    var supportPos = candidateSupportPos(candidate);
+    var face = candidateFace(candidate);
+    if (placedPos === null || supportPos === null || face <= 0) {
+        return false;
+    }
+    if (!isStraightTellyTarget(placedPos) && !isNearPlayerColumn(placedPos)) {
+        return false;
+    }
+    if (!isBlockBelowPlayerReplaceable()) {
+        return false;
+    }
+    if (!isUsableBlockStack(api.item.getHeld())) {
+        return false;
+    }
+    if (placedInCurrentWindow()) {
+        return false;
+    }
+
+    var placementPitch = sanitizePitch(candidatePitch(candidate), api.player.getPitch());
+    var prePlaceHit = resolveVerifiedHit(api.player.getYaw(), placementPitch, supportPos, face, placedPos);
+    if (prePlaceHit === null) {
+        return false;
+    }
+
+    if (cancelledGhostBlocks[posKey(supportPos)] === true) {
+        return false;
+    }
+    if (!isReplaceable(placedPos[0], placedPos[1], placedPos[2])) {
+        return false;
+    }
+    if (!isSupportAvailable(supportPos[0], supportPos[1], supportPos[2])) {
+        return false;
+    }
+    if (doesPlacementIntersectPlayer(placedPos)) {
+        return false;
+    }
+
+    var counterBefore = totalC08Counter;
+    placingViaModule = true;
+    var placed = api.block.place(supportPos[0], supportPos[1], supportPos[2], faceName(face));
+    placingViaModule = false;
+    var packetSent = totalC08Counter > counterBefore;
+
+    // 源里要求「C08 计数必须增加」，但那是它自己客户端的计数钩子；
+    // 这里只要 place 返回成功就算放上了（否则在计数钩子没接上时会全被拒）。
+    if (!placed && !packetSent) {
+        if (S_DEBUG.getBool()) {
+            printStatus("&cplace 失败 " + posKey(placedPos) + " face=" + face);
+        }
+        markRejectedTarget(placedPos);
+        return false;
+    }
+    if (S_DEBUG.getBool()) {
+        printStatus("&a放块 " + posKey(placedPos) + " 支撑=" + posKey(supportPos)
+                + " face=" + face + " 包=" + packetSent);
+    }
+
+    lastPlacedPos = placedPos;
+    lastSupportPos = supportPos;
+    lastSupportFace = face;
+    lastSuccessfulPlaceTick = currentClientTick;
+    forceSuppressTick = currentClientTick;
+    api.player.resetSwing();
+    return true;
+}
+
+function resolveVerifiedHit(yaw, pitch, expectedSupport, expectedFace, expectedPlaced) {
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return null;
+    }
+    if (!posEquals(traced[0], expectedSupport) || traced[1] !== expectedFace) {
+        return null;
+    }
+    var tracedPlaced = offsetPos(traced[0], traced[1]);
+    if (!posEquals(tracedPlaced, expectedPlaced)) {
+        return null;
+    }
+    return traced;
+}
+
+function resolveCandidateWithOffCursorSilentPitch(yaw, basePitch, heldStack) {
+    var safeBasePitch = sanitizePitch(basePitch, api.player.getPitch());
+    var previousCandidate = cachedCandidate;
+    var baseCandidate = resolveCandidateForCurrentTick(yaw, safeBasePitch, heldStack);
+    if (baseCandidate === null) {
+        if (previousCandidate !== null) {
+            var previousBlockPitch = getBlockDerivedSilentPitch(previousCandidate, safeBasePitch);
+            var recovered = resolveCandidateForCurrentTick(yaw, previousBlockPitch, heldStack);
+            if (recovered !== null) {
+                return recovered;
+            }
+            cacheCandidate(previousCandidate, yaw, safeBasePitch);
+            return previousCandidate;
+        }
+        return null;
+    }
+    if (isPlacementLookAligned(yaw, safeBasePitch, candidateSupportPos(baseCandidate), candidateFace(baseCandidate), candidatePlacedPos(baseCandidate))) {
+        return baseCandidate;
+    }
+    var blockPitch = getBlockDerivedSilentPitch(baseCandidate, safeBasePitch);
+    if (isPlacementLookAligned(yaw, blockPitch, candidateSupportPos(baseCandidate), candidateFace(baseCandidate), candidatePlacedPos(baseCandidate))) {
+        return [blockPitch, candidateSupportPos(baseCandidate), candidateFace(baseCandidate), candidateHitVec(baseCandidate), candidatePlacedPos(baseCandidate)];
+    }
+    var corrected = resolveCandidateForCurrentTick(yaw, blockPitch, heldStack);
+    if (corrected !== null && posEquals(candidatePlacedPos(baseCandidate), candidatePlacedPos(corrected))) {
+        return corrected;
+    }
+    cacheCandidate(baseCandidate, yaw, safeBasePitch);
+    return baseCandidate;
+}
+
+function resolveCandidateForCurrentTick(yaw, pitch, heldStack) {
+    var safePitch = sanitizePitch(pitch, api.player.getPitch());
+    if (hasCachedCandidateForCurrentTick(yaw, safePitch)) {
+        return cachedCandidate;
+    }
+    var candidate = findBelowPlacement(yaw, safePitch, heldStack, api.util.time() + (useExtendedSearch() ? 8 : 4));
+    cacheCandidate(candidate, yaw, safePitch);
+    return candidate;
+}
+
+function getBlockDerivedSilentPitch(candidate, fallbackPitch) {
+    if (candidate === null) {
+        return sanitizePitch(fallbackPitch, fallbackPitch);
+    }
+    var hitVec = candidateHitVec(candidate);
+    if (hitVec !== null) {
+        var derived = computePitchToHitVec(hitVec);
+        if (derived !== null) {
+            return sanitizePitch(derived, fallbackPitch);
+        }
+    }
+    return sanitizePitch(candidatePitch(candidate), fallbackPitch);
+}
+
+function cacheCandidate(candidate, yaw, pitch) {
+    cachedCandidate = candidate;
+    cachedCandidateTick = currentClientTick;
+    cachedCandidateYaw = yaw;
+    cachedCandidatePitch = pitch;
+    candidateResolvedThisTick = candidate !== null;
+}
+
+function hasCachedCandidateForCurrentTick(yaw, pitch) {
+    if (cachedCandidateTick !== currentClientTick || !candidateResolvedThisTick || cachedCandidate === null) {
+        return false;
+    }
+    if (isNaN(cachedCandidateYaw) || isNaN(cachedCandidatePitch)) {
+        return false;
+    }
+    return Math.abs(wrapAngle(yaw - cachedCandidateYaw)) <= 0.75 && Math.abs(pitch - cachedCandidatePitch) <= 0.75;
+}
+
+function clearCachedCandidate() {
+    cachedCandidate = null;
+    cachedCandidateTick = -2147483648;
+    cachedCandidateYaw = NaN;
+    cachedCandidatePitch = NaN;
+    candidateResolvedThisTick = false;
+}
+
+function findBelowPlacement(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+
+    var cursorRayCandidate = findDirectCursorRayPlacement(yaw, currentPitch, heldStack);
+    if (cursorRayCandidate !== null) {
+        return cursorRayCandidate;
+    }
+
+    var modeCheck = getConditionModeCheck();
+    forcedModeCheck = modeCheck;
+    var result = null;
+    if (modeCheck === 1) {
+        var straightGroundException = isStraightPreviousTickCenterOnGroundSupport();
+        var straightCenterBelowAir = isStraightCenterBelowAir();
+        var tryPreviousVisibleFirst = straightGroundException || !isCursorDirectedAtBlock(yaw, currentPitch) || isNearStraightSupportEdge() || straightCenterBelowAir;
+
+        if (straightCenterBelowAir) {
+            result = findBelowPlayerAirborneFallback(yaw, currentPitch, heldStack, Math.max(deadlineMs, api.util.time() + (useExtendedSearch() ? 4 : 2)));
+        }
+        if (result === null && tryPreviousVisibleFirst) {
+            result = findStraightPreviousVisibleFaceFallback(yaw, currentPitch, heldStack, deadlineMs);
+        }
+        if (result === null && straightGroundException) {
+            result = findStraightGroundExceptionCandidate(yaw, currentPitch, heldStack, deadlineMs);
+        }
+        if (result === null) {
+            result = findStraightLegacyLaneFallback(yaw, currentPitch, heldStack, deadlineMs);
+        }
+        if (result === null && !tryPreviousVisibleFirst) {
+            result = findStraightPreviousVisibleFaceFallback(yaw, currentPitch, heldStack, deadlineMs);
+        }
+        if (result === null) {
+            result = findPreviousBlockAirborneFallback(yaw, currentPitch, heldStack, Math.max(deadlineMs, api.util.time() + (useExtendedSearch() ? 4 : 2)));
+        }
+    } else {
+        var diagonalDeadline = Math.max(deadlineMs, api.util.time() + (useExtendedSearch() ? 10 : 6));
+        result = findBelowPlacementForSupport(yaw, currentPitch, heldStack, null, -1, diagonalDeadline);
+        if (result === null) {
+            result = findBelowPlayerAirborneFallback(yaw, currentPitch, heldStack, diagonalDeadline);
+        }
+        if (result === null) {
+            result = findNearestSupportToBelowPlayerFallback(yaw, currentPitch, heldStack, diagonalDeadline);
+        }
+        if (result === null) {
+            result = findLegacyBelowPlacement(yaw, currentPitch, heldStack, diagonalDeadline);
+        }
+    }
+    forcedModeCheck = 0;
+    return result;
+}
+
+function findDirectCursorRayPlacement(yaw, pitch, heldStack) {
+    if (!isUsableBlockStack(heldStack)) {
+        return null;
+    }
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return null;
+    }
+    var supportPos = traced[0];
+    var face = traced[1];
+    if (face === 0) {
+        return null;
+    }
+    var targetPos = offsetPos(supportPos, face);
+    if (!isPlacementTargetAvailable(targetPos)) {
+        return null;
+    }
+    if (!isSupportAvailable(supportPos[0], supportPos[1], supportPos[2])) {
+        return null;
+    }
+    if (shouldRejectStraightSideSwitch(targetPos, face)) {
+        return null;
+    }
+    var tracedPitch = clampFloat(pitch, -89.0, 89.0);
+    return [tracedPitch, supportPos, face, traced[2], targetPos];
+}
+
+function findStraightGroundExceptionCandidate(yaw, currentPitch, heldStack, deadlineMs) {
+    var previousForcedMode = forcedModeCheck;
+    forcedModeCheck = 2;
+    var candidate = findBelowPlacementForSupport(yaw, currentPitch, heldStack, null, -1, deadlineMs);
+    if (candidate === null) {
+        candidate = findBelowPlayerAirborneFallback(yaw, currentPitch, heldStack, Math.max(deadlineMs, api.util.time() + (useExtendedSearch() ? 4 : 2)));
+    }
+    if (candidate === null) {
+        candidate = findNearestSupportToBelowPlayerFallback(yaw, currentPitch, heldStack, Math.max(deadlineMs, api.util.time() + (useExtendedSearch() ? 4 : 2)));
+    }
+    forcedModeCheck = previousForcedMode;
+    return candidate;
+}
+
+function findPreviousBlockAirborneFallback(yaw, currentPitch, heldStack, deadlineMs) {
+    if (!hasValidLastSupportFace() || api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var exactTarget = offsetPos(lastSupportPos, lastSupportFace);
+    if (!isPlacementTargetAvailable(exactTarget)) {
+        return null;
+    }
+    var diagonal = isDiagonalMovementContext();
+    return findPitchPlacementForTarget(yaw, currentPitch, exactTarget, heldStack, lastSupportPos, lastSupportFace, deadlineMs, false, diagonal);
+}
+
+function findStraightLegacyLaneFallback(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var currentY = getCurrentBelowTargetY();
+    var strictY = getStrictBelowTargetY();
+    var previousY = getPreviousBelowTargetY();
+    var upwardY = isStraightAscendingContext() ? currentY + 1 : -2147483648;
+
+    var laneTargets = [];
+    addBelowTarget(laneTargets, getCursorStartTargetAtY(yaw, currentPitch, currentY));
+    addBelowTarget(laneTargets, getCursorPlacedTargetFromRay(yaw, currentPitch, currentY));
+    addBelowTarget(laneTargets, getCursorTargetAtY(yaw, currentPitch, currentY));
+    if (strictY !== currentY) {
+        addBelowTarget(laneTargets, getCursorStartTargetAtY(yaw, currentPitch, strictY));
+        addBelowTarget(laneTargets, getCursorPlacedTargetFromRay(yaw, currentPitch, strictY));
+        addBelowTarget(laneTargets, getCursorTargetAtY(yaw, currentPitch, strictY));
+    }
+    if (previousY !== currentY && previousY !== strictY) {
+        addBelowTarget(laneTargets, getCursorStartTargetAtY(yaw, currentPitch, previousY));
+        addBelowTarget(laneTargets, getCursorPlacedTargetFromRay(yaw, currentPitch, previousY));
+        addBelowTarget(laneTargets, getCursorTargetAtY(yaw, currentPitch, previousY));
+    }
+    if (upwardY !== -2147483648 && upwardY !== currentY && upwardY !== strictY && upwardY !== previousY) {
+        addBelowTarget(laneTargets, getCursorStartTargetAtY(yaw, currentPitch, upwardY));
+        addBelowTarget(laneTargets, getCursorPlacedTargetFromRay(yaw, currentPitch, upwardY));
+        addBelowTarget(laneTargets, getCursorTargetAtY(yaw, currentPitch, upwardY));
+    }
+
+    var i;
+    for (i = 0; i < laneTargets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos = laneTargets[i];
+        if (!isStraightLaneTargetAvailable(targetPos, currentY, strictY, previousY, upwardY)) {
+            continue;
+        }
+        var candidate = findLegacyPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, null, deadlineMs);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function isCursorDirectedAtBlock(yaw, pitch) {
+    return rayCast(yaw, pitch) !== null;
+}
+
+function isStraightCenterBelowAir() {
+    var playerPos = pos();
+    return isReplaceableName(blockNameAt(Math.floor(playerPos.x), getCurrentBelowTargetY(), Math.floor(playerPos.z)), true);
+}
+
+function isStraightPreviousTickCenterOnGroundSupport() {
+    var last = lastPos();
+    return !isReplaceableName(blockNameAt(Math.floor(last.x), Math.floor(last.y) - 1, Math.floor(last.z)), true);
+}
+
+function isNearStraightSupportEdge() {
+    if (lastSupportPos === null || lastSupportFace < 2) {
+        return false;
+    }
+    var playerPos = pos();
+    var localX = playerPos.x - lastSupportPos[0];
+    var localZ = playerPos.z - lastSupportPos[2];
+    if (isPastStraightSupportEdgeThreshold(lastSupportFace, localX, localZ)) {
+        return true;
+    }
+    var playerMotion = motion();
+    if (playerMotion.x * playerMotion.x + playerMotion.z * playerMotion.z < 1.0E-4) {
+        return false;
+    }
+    if (!isMovingTowardStraightSupportEdge(lastSupportFace, playerMotion.x, playerMotion.z)) {
+        return false;
+    }
+    return isPastStraightSupportEdgeThreshold(lastSupportFace, localX + playerMotion.x * 1.45, localZ + playerMotion.z * 1.45);
+}
+
+function isPastStraightSupportEdgeThreshold(supportFace, localX, localZ) {
+    if (supportFace === 5) { return localX >= 0.52; }
+    if (supportFace === 4) { return localX <= 0.48; }
+    if (supportFace === 3) { return localZ >= 0.52; }
+    if (supportFace === 2) { return localZ <= 0.48; }
+    return false;
+}
+
+function isMovingTowardStraightSupportEdge(supportFace, motionX, motionZ) {
+    if (supportFace === 5) { return motionX > 0.0; }
+    if (supportFace === 4) { return motionX < 0.0; }
+    if (supportFace === 3) { return motionZ > 0.0; }
+    if (supportFace === 2) { return motionZ < 0.0; }
+    return false;
+}
+
+function findStraightPreviousVisibleFaceFallback(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs || !hasValidLastSupportFace()) {
+        return null;
+    }
+    if (lastSupportFace <= 0) {
+        return null;
+    }
+    var targetPos = offsetPos(lastSupportPos, lastSupportFace);
+    if (!isPlacementTargetAvailable(targetPos)) {
+        return null;
+    }
+    return findPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, lastSupportPos, lastSupportFace, deadlineMs, true, true);
+}
+
+function getBelowPlayerFallbackEndpoints(yaw, pitch, targetY) {
+    var endpoints = [];
+    if (!isDiagonalMovementContext()) {
+        if (!api.player.isOnGround()) {
+            addBelowTargetIfUnique(endpoints, getFeetBelowTargetAtY(targetY));
+            addBelowTargetIfUnique(endpoints, getMotionBelowTargetAtY(targetY, 1.0));
+            addBelowTargetIfUnique(endpoints, getMotionBelowTargetAtY(targetY, 1.7));
+        }
+        addBelowTargetIfUnique(endpoints, getCursorStartTargetAtY(yaw, pitch, targetY));
+        addBelowTargetIfUnique(endpoints, getCursorPlacedTargetFromRay(yaw, pitch, targetY));
+        addBelowTargetIfUnique(endpoints, getCursorTargetAtY(yaw, pitch, targetY));
+        return endpoints;
+    }
+    addBelowTargetIfUnique(endpoints, getMotionBelowTargetAtY(targetY, 1.0));
+    addBelowTargetIfUnique(endpoints, getMotionBelowTargetAtY(targetY, 1.7));
+    return endpoints;
+}
+
+function findBelowPlayerAirborneFallback(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var playerBelowY = getCurrentBelowTargetY();
+    var diagonal = isDiagonalMovementContext();
+    var allowNonCursorTarget = diagonal || !api.player.isOnGround();
+    var fallbackTargets = [];
+    var endpoints = getBelowPlayerFallbackEndpoints(yaw, currentPitch, playerBelowY);
+    var i;
+    for (i = 0; i < endpoints.length; i++) {
+        addBelowTarget(fallbackTargets, endpoints[i]);
+    }
+    for (i = 0; i < fallbackTargets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos = fallbackTargets[i];
+        if (!isPlacementTargetAvailable(targetPos)) {
+            continue;
+        }
+        var candidate = findPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, null, -1, deadlineMs, false, allowNonCursorTarget);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function findNearestSupportToBelowPlayerFallback(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var targetY = getCurrentBelowTargetY();
+    var belowPlayer = getFeetBelowTargetAtY(targetY);
+    if (belowPlayer === null || hasDirectSupportNeighbor(belowPlayer)) {
+        return null;
+    }
+
+    var searchOrigin = getPathStartTowardBelowPlayer(targetY, belowPlayer);
+    var nearestStart = findNearestSupportedReplaceableTarget(searchOrigin, belowPlayer, targetY, deadlineMs);
+    if (nearestStart === null) {
+        return null;
+    }
+
+    var requiredPath = rasterizeHorizontalLineAtY(nearestStart, belowPlayer, targetY, 64);
+    var i;
+    for (i = requiredPath.length - 1; i >= 0; i--) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var pathPos = requiredPath[i];
+        if (!isPlacementTargetAvailable(pathPos)) {
+            continue;
+        }
+        var candidate = findPitchPlacementForTarget(yaw, currentPitch, pathPos, heldStack, null, -1, deadlineMs, false, true);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function findNearestSupportedReplaceableTarget(origin, belowPlayer, targetY, deadlineMs) {
+    if (origin === null || belowPlayer === null || api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var radius;
+    for (radius = 0; radius <= 3; radius++) {
+        var bestAtRadius = null;
+        var bestScore = Number.POSITIVE_INFINITY;
+        var dx;
+        for (dx = -radius; dx <= radius; dx++) {
+            var dzAbs = radius - Math.abs(dx);
+            var positive = [origin[0] + dx, targetY, origin[2] + dzAbs];
+            if (isPlacementTargetAvailable(positive) && hasDirectSupportNeighbor(positive)) {
+                var score = scoreAirPathStartCandidate(positive, belowPlayer, origin);
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestAtRadius = positive;
+                }
+            }
+            if (dzAbs === 0) {
+                continue;
+            }
+            var negative = [origin[0] + dx, targetY, origin[2] - dzAbs];
+            if (isPlacementTargetAvailable(negative) && hasDirectSupportNeighbor(negative)) {
+                var score2 = scoreAirPathStartCandidate(negative, belowPlayer, origin);
+                if (score2 < bestScore) {
+                    bestScore = score2;
+                    bestAtRadius = negative;
+                }
+            }
+        }
+        if (bestAtRadius !== null) {
+            return bestAtRadius;
+        }
+    }
+    return null;
+}
+
+function scoreAirPathStartCandidate(candidate, belowPlayer, origin) {
+    var sampleY = candidate[1] + 0.5;
+    var goalDistSq = distSq(candidate[0] + 0.5, sampleY, candidate[2] + 0.5, belowPlayer[0] + 0.5, sampleY, belowPlayer[2] + 0.5);
+    var originDistSq = distSq(candidate[0] + 0.5, sampleY, candidate[2] + 0.5, origin[0] + 0.5, sampleY, origin[2] + 0.5);
+    return goalDistSq * 4.0 + originDistSq;
+}
+
+function getPathStartTowardBelowPlayer(targetY, fallback) {
+    var pathStart = null;
+    if (lastPlacedPos !== null && lastPlacedPos[1] === targetY) {
+        pathStart = lastPlacedPos;
+    }
+    if (pathStart === null) {
+        pathStart = getMotionBelowTargetAtY(targetY, 1.7);
+    }
+    if (pathStart === null) {
+        pathStart = getMotionBelowTargetAtY(targetY, 1.0);
+    }
+    return pathStart !== null ? pathStart : fallback;
+}
+
+function hasValidLastPlacedPos() {
+    if (lastPlacedPos === null) {
+        return false;
+    }
+    return isWithinReach(lastPlacedPos) && isSupportAvailable(lastPlacedPos[0], lastPlacedPos[1], lastPlacedPos[2]) && !isInteractable(lastPlacedPos[0], lastPlacedPos[1], lastPlacedPos[2]);
+}
+
+function hasValidLastSupportFace() {
+    if (lastSupportPos === null || lastSupportFace < 0) {
+        return false;
+    }
+    return isWithinReach(lastSupportPos) && isSupportAvailable(lastSupportPos[0], lastSupportPos[1], lastSupportPos[2]) && !isInteractable(lastSupportPos[0], lastSupportPos[1], lastSupportPos[2]);
+}
+
+function findLegacyBelowPlacement(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs || !isUsableBlockStack(heldStack)) {
+        return null;
+    }
+    if (isDiagonalMovementContext()) {
+        var diagonalCandidate = findLegacyDiagonalPlacement(yaw, currentPitch, heldStack, deadlineMs);
+        if (diagonalCandidate !== null) {
+            return diagonalCandidate;
+        }
+    }
+    if (hasValidLastPlacedPos()) {
+        var preferred = findLegacyBelowPlacementForSupport(yaw, currentPitch, heldStack, lastPlacedPos, deadlineMs);
+        if (preferred !== null) {
+            return preferred;
+        }
+    }
+    return findLegacyBelowPlacementForSupport(yaw, currentPitch, heldStack, null, deadlineMs);
+}
+
+function findLegacyDiagonalPlacement(yaw, currentPitch, heldStack, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var diagonalTargets = [];
+    var currentY = getCurrentBelowTargetY();
+    var strictY = getStrictBelowTargetY();
+    var endpoints = getBelowPlayerFallbackEndpoints(yaw, currentPitch, currentY);
+    var i;
+    for (i = 0; i < endpoints.length; i++) {
+        addBelowTarget(diagonalTargets, endpoints[i]);
+    }
+    if (strictY !== currentY) {
+        var strictEndpoints = getBelowPlayerFallbackEndpoints(yaw, currentPitch, strictY);
+        for (i = 0; i < strictEndpoints.length; i++) {
+            addBelowTarget(diagonalTargets, strictEndpoints[i]);
+        }
+    }
+    if (diagonalTargets.length === 0) {
+        return null;
+    }
+    var preferredSupportPos = hasValidLastPlacedPos() ? lastPlacedPos : null;
+    for (i = 0; i < diagonalTargets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos = diagonalTargets[i];
+        if (!isPlacementTargetAvailable(targetPos)) {
+            continue;
+        }
+        var candidate = findLegacyPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, preferredSupportPos, deadlineMs);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    if (preferredSupportPos === null) {
+        return null;
+    }
+    for (i = 0; i < diagonalTargets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos2 = diagonalTargets[i];
+        if (!isPlacementTargetAvailable(targetPos2)) {
+            continue;
+        }
+        var candidate2 = findLegacyPitchPlacementForTarget(yaw, currentPitch, targetPos2, heldStack, null, deadlineMs);
+        if (candidate2 !== null) {
+            return candidate2;
+        }
+    }
+    return null;
+}
+
+function findLegacyBelowPlacementForSupport(yaw, currentPitch, heldStack, preferredSupportPos, deadlineMs) {
+    var targets = getMessageStyleBelowTargets();
+    var i;
+    for (i = 0; i < targets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos = targets[i];
+        if (!isPlacementTargetAvailable(targetPos)) {
+            continue;
+        }
+        var candidate = findLegacyPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, preferredSupportPos, deadlineMs);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function findLegacyPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, preferredSupportPos, deadlineMs) {
+    var clampedBasePitch = clampFloat(currentPitch, 40.0, 89.0);
+    var direct = tryLegacyPitch(yaw, clampedBasePitch, targetPos, preferredSupportPos, deadlineMs);
+    if (direct !== null) {
+        return direct;
+    }
+    var offset;
+    for (offset = 1; offset <= 49; offset++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var up = clampedBasePitch + offset;
+        if (up <= 89.0) {
+            var candidate = tryLegacyPitch(yaw, up, targetPos, preferredSupportPos, deadlineMs);
+            if (candidate !== null) {
+                return candidate;
+            }
+        }
+        var down = clampedBasePitch - offset;
+        if (down >= 40.0) {
+            var candidate2 = tryLegacyPitch(yaw, down, targetPos, preferredSupportPos, deadlineMs);
+            if (candidate2 !== null) {
+                return candidate2;
+            }
+        }
+    }
+    return null;
+}
+
+function tryLegacyPitch(yaw, pitch, targetPos, preferredSupportPos, deadlineMs) {
+    if (api.util.time() >= deadlineMs) {
+        return null;
+    }
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return null;
+    }
+    var supportPos = traced[0];
+    var face = traced[1];
+    if (preferredSupportPos !== null && !posEquals(supportPos, preferredSupportPos)) {
+        return null;
+    }
+    if (face === 0) {
+        return null;
+    }
+    if (isReplaceable(supportPos[0], supportPos[1], supportPos[2]) || isInteractable(supportPos[0], supportPos[1], supportPos[2])) {
+        return null;
+    }
+    var placedPos = offsetPos(supportPos, face);
+    if (!posEquals(placedPos, targetPos)) {
+        return null;
+    }
+    return [Math.min(pitch, 89.0), supportPos, face, traced[2], placedPos];
+}
+
+function getMessageStyleBelowTargets() {
+    var offsets = [0.0, 0.29, -0.29];
+    var playerPos = pos();
+    var maxY = Math.floor(playerPos.y) - 1;
+    var minY = Math.floor(playerPos.y) - 2;
+    var targets = [];
+    var targetY;
+    for (targetY = maxY; targetY >= minY; targetY--) {
+        var xi;
+        for (xi = 0; xi < offsets.length; xi++) {
+            var zi;
+            for (zi = 0; zi < offsets.length; zi++) {
+                targets.push([Math.floor(playerPos.x + offsets[xi]), targetY, Math.floor(playerPos.z + offsets[zi])]);
+            }
+        }
+    }
+    return targets;
+}
+
+function findBelowPlacementForSupport(yaw, currentPitch, heldStack, preferredSupportPos, preferredSupportFace, deadlineMs) {
+    var diagonal = isDiagonalMovementContext();
+    var targets = getBelowTargets(yaw, currentPitch);
+    var i;
+    for (i = 0; i < targets.length; i++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var targetPos = targets[i];
+        if (!isPlacementTargetAvailable(targetPos)) {
+            continue;
+        }
+        if (!isStrictOneBelowPlayer(targetPos)) {
+            continue;
+        }
+        var candidate = findPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, preferredSupportPos, preferredSupportFace, deadlineMs, false, diagonal);
+        if (candidate !== null) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function isWithinReach(targetPos) {
+    if (targetPos === null) {
+        return false;
+    }
+    var eyes = getEyes();
+    var cx = Math.max(targetPos[0], Math.min(eyes.x, targetPos[0] + 1.0));
+    var cy = Math.max(targetPos[1], Math.min(eyes.y, targetPos[1] + 1.0));
+    var cz = Math.max(targetPos[2], Math.min(eyes.z, targetPos[2] + 1.0));
+    var dx = eyes.x - cx;
+    var dy = eyes.y - cy;
+    var dz = eyes.z - cz;
+    return dx * dx + dy * dy + dz * dz <= reach() * reach();
+}
+
+function findPitchPlacementForTarget(yaw, currentPitch, targetPos, heldStack, preferredSupportPos, preferredSupportFace, deadlineMs, requireLookAlignment, allowNonCursorTarget) {
+    if (api.util.time() >= deadlineMs || targetPos === null) {
+        return null;
+    }
+    var effectiveAllowNonCursorTarget = allowNonCursorTarget || shouldAllowPlayerOneNonCursorTarget(targetPos);
+    if (!effectiveAllowNonCursorTarget && !isCursorOrBelowPlayerTarget(targetPos, yaw, currentPitch)) {
+        return null;
+    }
+    if (!isPlacementTargetAvailable(targetPos)) {
+        return null;
+    }
+
+    var bestCandidate = null;
+    var bestScore = Number.POSITIVE_INFINITY;
+    var faces = getAllowedPlaceFacesForContext(yaw);
+    var fi;
+    for (fi = 0; fi < faces.length; fi++) {
+        var placeFace = faces[fi];
+        if (api.util.time() >= deadlineMs) {
+            break;
+        }
+        if (shouldRejectStraightSideSwitch(targetPos, placeFace)) {
+            continue;
+        }
+        var supportPos = offsetPos(targetPos, opposite(placeFace));
+        if (preferredSupportPos !== null && !posEquals(supportPos, preferredSupportPos)) {
+            continue;
+        }
+        if (preferredSupportFace >= 0 && placeFace !== preferredSupportFace) {
+            continue;
+        }
+        if (!isSupportAvailable(supportPos[0], supportPos[1], supportPos[2])) {
+            continue;
+        }
+        if (!isWithinReach(supportPos)) {
+            continue;
+        }
+
+        var hitOffsets = useExtendedSearch() ? EXTENDED_FACE_HIT_OFFSETS : FACE_HIT_OFFSETS;
+        var pi;
+        for (pi = 0; pi < hitOffsets.length; pi++) {
+            var si;
+            for (si = 0; si < hitOffsets.length; si++) {
+                if (api.util.time() >= deadlineMs) {
+                    break;
+                }
+                var hitVec = getSupportFaceHitVec(supportPos, placeFace, hitOffsets[pi], hitOffsets[si]);
+                var candidate = buildPlacementCandidateForHitVec(yaw, targetPos, supportPos, placeFace, hitVec, requireLookAlignment, effectiveAllowNonCursorTarget);
+                if (candidate === null) {
+                    continue;
+                }
+                var candidateScore = scorePlacementCandidate(currentPitch, candidatePitch(candidate), placeFace, hitOffsets[pi], hitOffsets[si]);
+                if (candidateScore < bestScore) {
+                    bestScore = candidateScore;
+                    bestCandidate = candidate;
+                }
+            }
+        }
+    }
+    if (bestCandidate === null && preferredSupportPos !== null && preferredSupportFace >= 0) {
+        return findRayAlignedPitchCandidate(yaw, currentPitch, targetPos, preferredSupportPos, preferredSupportFace, deadlineMs);
+    }
+    return bestCandidate;
+}
+
+function findRayAlignedPitchCandidate(yaw, currentPitch, targetPos, supportPos, placeFace, deadlineMs) {
+    var clampedBasePitch = clampFloat(currentPitch, 40.0, 89.0);
+    var offset;
+    for (offset = 0; offset <= 49; offset++) {
+        if (api.util.time() >= deadlineMs) {
+            return null;
+        }
+        var upPitch = clampedBasePitch + offset;
+        if (upPitch <= 89.0) {
+            var candidate = tryRayAlignedPitch(yaw, upPitch, targetPos, supportPos, placeFace);
+            if (candidate !== null) {
+                return candidate;
+            }
+        }
+        if (offset === 0) {
+            continue;
+        }
+        var downPitch = clampedBasePitch - offset;
+        if (downPitch >= 40.0) {
+            var candidate2 = tryRayAlignedPitch(yaw, downPitch, targetPos, supportPos, placeFace);
+            if (candidate2 !== null) {
+                return candidate2;
+            }
+        }
+    }
+    return null;
+}
+
+function tryRayAlignedPitch(yaw, pitch, targetPos, supportPos, placeFace) {
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return null;
+    }
+    if (!posEquals(traced[0], supportPos) || traced[1] !== placeFace) {
+        return null;
+    }
+    var tracedPlaced = offsetPos(traced[0], traced[1]);
+    if (!posEquals(tracedPlaced, targetPos)) {
+        return null;
+    }
+    return [pitch, traced[0], traced[1], traced[2], tracedPlaced];
+}
+
+function scorePlacementCandidate(currentPitch, candidatePitchValue, placeFace, primaryOffset, secondaryOffset) {
+    var pitchPenalty = Math.abs(wrapAngle(candidatePitchValue - currentPitch));
+    var centerPenalty = Math.abs(primaryOffset - 0.5) + Math.abs(secondaryOffset - 0.5);
+    var facePenalty = placeFace === 1 ? 0.0 : 0.35;
+    var straightSidePenalty = getStraightSideSwitchPenalty(placeFace);
+    return pitchPenalty + centerPenalty * 2.0 + facePenalty + straightSidePenalty;
+}
+
+function getStraightSideSwitchPenalty(placeFace) {
+    if (getConditionModeCheck() !== 1) {
+        return 0.0;
+    }
+    if (lastSupportFace < 2) {
+        return 0.0;
+    }
+    if (placeFace === lastSupportFace) {
+        return 0.0;
+    }
+    return 0.8;
+}
+
+function shouldRejectStraightSideSwitch(targetPos, placeFace) {
+    if (targetPos === null || getConditionModeCheck() !== 1) {
+        return false;
+    }
+    if (placeFace < 2) {
+        return false;
+    }
+    if (lastSupportFace < 2) {
+        return false;
+    }
+    if (placeFace === lastSupportFace) {
+        return false;
+    }
+    if (isNearStraightSupportEdge()) {
+        return false;
+    }
+    var laneSupportPos = offsetPos(targetPos, opposite(lastSupportFace));
+    return isSupportAvailable(laneSupportPos[0], laneSupportPos[1], laneSupportPos[2]) && isWithinReach(laneSupportPos);
+}
+
+function buildPlacementCandidateForHitVec(yaw, targetPos, supportPos, placeFace, hitVec, requireLookAlignment, allowNonCursorTarget) {
+    if (hitVec === null) {
+        return null;
+    }
+    var offsetTarget = offsetPos(supportPos, placeFace);
+    if (!posEquals(offsetTarget, targetPos)) {
+        return null;
+    }
+    if (!isStrictOneBelowPlayer(offsetTarget)) {
+        return null;
+    }
+    var pitch = computePitchToHitVec(hitVec);
+    if (pitch === null) {
+        return null;
+    }
+    if (!isPlacementLookAligned(yaw, pitch, supportPos, placeFace, targetPos)) {
+        return null;
+    }
+    if (!(allowNonCursorTarget || isDiagonalMovementContext() || isSupportFaceVisible(supportPos, placeFace, hitVec))) {
+        return null;
+    }
+    return [pitch, supportPos, placeFace, hitVec, offsetTarget];
+}
+
+function getAllowedPlaceFacesForContext(yaw) {
+    if (getConditionModeCheck() !== 1) {
+        return ALLOWED_PLACE_FACES;
+    }
+    var forward = getStraightForwardFacing(yaw);
+    if (useExtendedSearch()) {
+        return [rotateY(forward), rotateYCCW(forward), forward, opposite(forward), 1];
+    }
+    return [rotateY(forward), rotateYCCW(forward), forward, opposite(forward)];
+}
+
+function isPlacementLookAligned(yaw, pitch, supportPos, placeFace, targetPos) {
+    if (supportPos === null || placeFace < 0 || targetPos === null) {
+        return false;
+    }
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return false;
+    }
+    if (!posEquals(traced[0], supportPos) || traced[1] !== placeFace) {
+        return false;
+    }
+    var tracedOffset = offsetPos(traced[0], traced[1]);
+    return posEquals(tracedOffset, targetPos);
+}
+
+function isSupportFaceVisible(supportPos, placeFace, hitVec) {
+    var eyes = getEyes();
+    var dx = hitVec.x - eyes.x;
+    var dy = hitVec.y - eyes.y;
+    var dz = hitVec.z - eyes.z;
+    var distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (distance < 1.0E-4) {
+        return false;
+    }
+    var traceYaw = Math.atan2(dz, dx) * 180.0 / Math.PI - 90.0;
+    var tracePitch = -Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * 180.0 / Math.PI;
+    var hit = api.raycast.trace(traceYaw, tracePitch, distance + 0.5);
+    if (hit === null || !hit.isBlock()) {
+        return false;
+    }
+    var tracedPos = [hit.getBlockX(), hit.getBlockY(), hit.getBlockZ()];
+    var tracedFace = faceFromName(hit.getSide());
+    return posEquals(tracedPos, supportPos) && tracedFace === placeFace;
+}
+
+function getSupportFaceHitVec(supportPos, placeFace, primaryOffset, secondaryOffset) {
+    var primary = Math.max(0.001, Math.min(0.999, primaryOffset));
+    var secondary = Math.max(0.001, Math.min(0.999, secondaryOffset));
+    if (placeFace === 2) { return { x: supportPos[0] + primary, y: supportPos[1] + secondary, z: supportPos[2] + 0.001 }; }
+    if (placeFace === 3) { return { x: supportPos[0] + primary, y: supportPos[1] + secondary, z: supportPos[2] + 0.999 }; }
+    if (placeFace === 5) { return { x: supportPos[0] + 0.999, y: supportPos[1] + primary, z: supportPos[2] + secondary }; }
+    if (placeFace === 4) { return { x: supportPos[0] + 0.001, y: supportPos[1] + primary, z: supportPos[2] + secondary }; }
+    if (placeFace === 0) { return { x: supportPos[0] + primary, y: supportPos[1] + 0.001, z: supportPos[2] + secondary }; }
+    return { x: supportPos[0] + primary, y: supportPos[1] + 0.999, z: supportPos[2] + secondary };
+}
+
+function computePitchToHitVec(hitVec) {
+    var eyes = getEyes();
+    var dx = hitVec.x - eyes.x;
+    var dz = hitVec.z - eyes.z;
+    var horizontal = Math.sqrt(dx * dx + dz * dz);
+    var dy = hitVec.y - eyes.y;
+    var pitch = -Math.atan2(dy, horizontal) * 180.0 / Math.PI;
+    return Math.max(-89.0, Math.min(89.0, pitch));
+}
+
+function getBelowTargets(yaw, pitch) {
+    if (cachedBelowTargetsTick === currentClientTick && cachedBelowTargets !== null) {
+        return cachedBelowTargets;
+    }
+    var belowTargets = [];
+    var diagonal = isDiagonalMovementContext();
+    if (!diagonal) {
+        var currentY = getCurrentBelowTargetY();
+        addBelowTarget(belowTargets, getCursorStartTargetAtY(yaw, pitch, currentY));
+        if (belowTargets.length === 0) {
+            var strictY = getStrictBelowTargetY();
+            if (strictY !== currentY) {
+                addBelowTarget(belowTargets, getCursorStartTargetAtY(yaw, pitch, strictY));
+            }
+        }
+        if (belowTargets.length === 0) {
+            addBelowTarget(belowTargets, getCursorPlacedTargetFromRay(yaw, pitch, currentY));
+        }
+        if (belowTargets.length === 0) {
+            var strictY2 = getStrictBelowTargetY();
+            if (strictY2 !== currentY) {
+                addBelowTarget(belowTargets, getCursorPlacedTargetFromRay(yaw, pitch, strictY2));
+            }
+        }
+        if (belowTargets.length === 0) {
+            addBelowTarget(belowTargets, getCursorTargetAtY(yaw, pitch, currentY));
+        }
+    } else {
+        var currentY2 = getCurrentBelowTargetY();
+        addBelowTarget(belowTargets, getMotionBelowTargetAtY(currentY2, 1.0));
+        addBelowTarget(belowTargets, getMotionBelowTargetAtY(currentY2, 1.7));
+        var endpoints = getBelowPlayerFallbackEndpoints(yaw, pitch, currentY2);
+        var i;
+        for (i = 0; i < endpoints.length; i++) {
+            addBelowTarget(belowTargets, endpoints[i]);
+        }
+    }
+    cachedBelowTargets = belowTargets;
+    cachedBelowTargetsTick = currentClientTick;
+    return belowTargets;
+}
+
+function isCursorOrBelowPlayerTarget(targetPos, yaw, pitch) {
+    if (targetPos === null) {
+        return false;
+    }
+    if (!isDiagonalMovementContext()) {
+        var currentY = getCurrentBelowTargetY();
+        if (posEquals(getCursorStartTargetAtY(yaw, pitch, currentY), targetPos)) { return true; }
+        if (posEquals(getCursorPlacedTargetFromRay(yaw, pitch, currentY), targetPos)) { return true; }
+        var strictY = getStrictBelowTargetY();
+        if (strictY !== currentY) {
+            if (posEquals(getCursorStartTargetAtY(yaw, pitch, strictY), targetPos)) { return true; }
+            if (posEquals(getCursorPlacedTargetFromRay(yaw, pitch, strictY), targetPos)) { return true; }
+        }
+        if (isCursorInsideTargetAtY(targetPos, currentY)) { return true; }
+        return posEquals(getCursorTargetAtY(yaw, pitch, currentY), targetPos);
+    }
+    var strictY2 = getStrictBelowTargetY();
+    if (isBelowPlayerTargetAtY(targetPos, strictY2, yaw, pitch)) { return true; }
+    return isBelowPlayerTargetAtY(targetPos, getCurrentBelowTargetY(), yaw, pitch);
+}
+
+function isBelowPlayerTargetAtY(targetPos, targetY, yaw, pitch) {
+    var candidates = getBelowPlayerFallbackEndpoints(yaw, pitch, targetY);
+    var i;
+    for (i = 0; i < candidates.length; i++) {
+        if (posEquals(targetPos, candidates[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function getFeetBelowTargetAtY(targetY) {
+    var playerPos = pos();
+    return [Math.floor(playerPos.x), targetY, Math.floor(playerPos.z)];
+}
+
+function shouldAllowPlayerOneNonCursorTarget(targetPos) {
+    if (targetPos === null) {
+        return false;
+    }
+    if (isDiagonalMovementContext() || api.player.isOnGround()) {
+        return false;
+    }
+    if (!isPlayerHitboxFullyInsideSingleBlockColumn()) {
+        return false;
+    }
+    if (!hasValidLastSupportFace() || lastSupportFace === 0) {
+        return false;
+    }
+    var continuationTarget = offsetPos(lastSupportPos, lastSupportFace);
+    if (!posEquals(targetPos, continuationTarget)) {
+        return false;
+    }
+    var targetY = targetPos[1];
+    var currentY = getCurrentBelowTargetY();
+    var strictY = getStrictBelowTargetY();
+    if (targetY !== currentY && targetY !== strictY) {
+        return false;
+    }
+    var feetBelow = getFeetBelowTargetAtY(targetY);
+    var horizontalDistance = Math.abs(targetPos[0] - feetBelow[0]) + Math.abs(targetPos[2] - feetBelow[2]);
+    return horizontalDistance <= 1;
+}
+
+function isPlayerHitboxFullyInsideSingleBlockColumn() {
+    var playerPos = pos();
+    var half = api.player.getWidth() / 2.0;
+    var minX = Math.floor(playerPos.x - half + 1.0E-4);
+    var maxX = Math.floor(playerPos.x + half - 1.0E-4);
+    if (minX !== maxX) {
+        return false;
+    }
+    var minZ = Math.floor(playerPos.z - half + 1.0E-4);
+    var maxZ = Math.floor(playerPos.z + half - 1.0E-4);
+    return minZ === maxZ;
+}
+
+function getMotionBelowTargetAtY(targetY, multiplier) {
+    var playerPos = pos();
+    var playerMotion = motion();
+    return [Math.floor(playerPos.x + playerMotion.x * multiplier), targetY, Math.floor(playerPos.z + playerMotion.z * multiplier)];
+}
+
+function hasDirectSupportNeighbor(targetPos) {
+    var i;
+    for (i = 0; i < ALLOWED_PLACE_FACES.length; i++) {
+        var supportPos = offsetPos(targetPos, opposite(ALLOWED_PLACE_FACES[i]));
+        if (isSupportAvailable(supportPos[0], supportPos[1], supportPos[2])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function addBelowTargetIfUnique(targets, candidate) {
+    if (candidate === null) {
+        return;
+    }
+    if (!isStrictOneBelowPlayer(candidate)) {
+        return;
+    }
+    var i;
+    for (i = 0; i < targets.length; i++) {
+        if (posEquals(targets[i], candidate)) {
+            return;
+        }
+    }
+    targets.push(candidate);
+}
+
+function addBelowTarget(targets, candidate) {
+    addBelowTargetIfUnique(targets, candidate);
+}
+
+function rasterizeHorizontalLineAtY(start, end, y, maxSteps) {
+    var line = [];
+    var x0 = start[0];
+    var z0 = start[2];
+    var x1 = end[0];
+    var z1 = end[2];
+    var dx = Math.abs(x1 - x0);
+    var dz = Math.abs(z1 - z0);
+    var sx = x1 > x0 ? 1 : (x1 < x0 ? -1 : 0);
+    var sz = z1 > z0 ? 1 : (z1 < z0 ? -1 : 0);
+    var movedX = 0;
+    var movedZ = 0;
+    var steps;
+    for (steps = 0; steps < maxSteps; steps++) {
+        line.push([x0, y, z0]);
+        if ((x0 === x1 && z0 === z1) || (movedX >= dx && movedZ >= dz)) {
+            break;
+        }
+        if (movedX >= dx) {
+            z0 += sz;
+            movedZ++;
+        } else if (movedZ >= dz) {
+            x0 += sx;
+            movedX++;
+        } else if ((1 + 2 * movedX) * dz < (1 + 2 * movedZ) * dx) {
+            x0 += sx;
+            movedX++;
+        } else {
+            z0 += sz;
+            movedZ++;
+        }
+    }
+    return line;
+}
+
+function getDetectedModeCheck() {
+    var forwardInput = Math.abs(api.move.getForwardRaw());
+    var strafeInput = Math.abs(api.move.getStrafeRaw());
+    if (forwardInput >= 0.08 || strafeInput >= 0.08) {
+        return (forwardInput >= 0.08 && strafeInput >= 0.08) ? 1 : 2;
+    }
+    var direction = getMotionDirectionComponents();
+    if (direction === null) {
+        return 1;
+    }
+    var angleDeg = Math.atan2(direction[1], direction[0]) * 180.0 / Math.PI;
+    var norm90 = (angleDeg % 90.0 + 90.0) % 90.0;
+    return Math.abs(norm90 - 45.0) <= 18.0 ? 2 : 1;
+}
+
+function getMotionDirectionComponents() {
+    var playerPos = pos();
+    var last = lastPos();
+    var dirX = playerPos.x - last.x;
+    var dirZ = playerPos.z - last.z;
+    var speedSq = dirX * dirX + dirZ * dirZ;
+    if (speedSq < 1.0E-4) {
+        var playerMotion = motion();
+        dirX = playerMotion.x;
+        dirZ = playerMotion.z;
+        speedSq = dirX * dirX + dirZ * dirZ;
+    }
+    if (speedSq < 1.0E-4) {
+        return null;
+    }
+    return [dirX, dirZ];
+}
+
+function getInputDirectionComponents(referenceYaw) {
+    var forwardInput = api.move.getForwardRaw();
+    var strafeInput = api.move.getStrafeRaw();
+    if (Math.abs(forwardInput) < 0.08 && Math.abs(strafeInput) < 0.08) {
+        return null;
+    }
+    var yawRadians = referenceYaw * Math.PI / 180.0;
+    var sinYaw = Math.sin(yawRadians);
+    var cosYaw = Math.cos(yawRadians);
+    var dirX = forwardInput * -sinYaw + strafeInput * cosYaw;
+    var dirZ = forwardInput * cosYaw - strafeInput * sinYaw;
+    if (dirX * dirX + dirZ * dirZ < 1.0E-4) {
+        return null;
+    }
+    return [dirX, dirZ];
+}
+
+function getStraightForwardFacing(fallbackYaw) {
+    var direction = getInputDirectionComponents(fallbackYaw);
+    if (direction === null) {
+        direction = getMotionDirectionComponents();
+    }
+    if (direction === null) {
+        return facingFromYaw(fallbackYaw);
+    }
+    var directionYaw = Math.atan2(direction[1], direction[0]) * 180.0 / Math.PI - 90.0;
+    return facingFromYaw(directionYaw);
+}
+
+function getConditionModeCheck() {
+    if (forcedModeCheck !== 0) {
+        return forcedModeCheck;
+    }
+    return getDetectedModeCheck();
+}
+
+function isDiagonalMovementContext() {
+    return getConditionModeCheck() === 2;
+}
+
+function getCursorPlacedTargetFromRay(yaw, pitch, targetY) {
+    var traced = rayCast(yaw, pitch);
+    if (traced === null) {
+        return null;
+    }
+    var offsetTarget = offsetPos(traced[0], traced[1]);
+    if (offsetTarget[1] !== targetY) {
+        return null;
+    }
+    return offsetTarget;
+}
+
+function getCursorStartTargetAtY(yaw, pitch, targetY) {
+    var cursorPoint = getCursorIntersectionAtY(targetY);
+    var lookVec = getCursorLookVec();
+    if (cursorPoint === null || lookVec === null) {
+        return null;
+    }
+    var startX = cursorPoint.x - lookVec.x * 0.03;
+    var startZ = cursorPoint.z - lookVec.z * 0.03;
+    return [Math.floor(startX), targetY, Math.floor(startZ)];
+}
+
+function getCursorTargetAtY(yaw, pitch, targetY) {
+    var cursorPoint = getCursorIntersectionAtY(targetY);
+    if (cursorPoint === null) {
+        return null;
+    }
+    return [Math.floor(cursorPoint.x), targetY, Math.floor(cursorPoint.z)];
+}
+
+function getCursorIntersectionAtY(targetY) {
+    var eyes = getEyes();
+    var lookVec = getCursorLookVec();
+    if (lookVec === null || Math.abs(lookVec.y) < 1.0E-4) {
+        return null;
+    }
+    var t = (targetY - eyes.y) / lookVec.y;
+    if (t <= 0.0) {
+        return null;
+    }
+    return { x: eyes.x + lookVec.x * t, y: targetY + 0.5, z: eyes.z + lookVec.z * t };
+}
+
+function getCursorLookVec() {
+    var cameraYaw = api.camera.getYaw();
+    var cameraPitch = api.camera.getPitch();
+    if (!isNaN(cameraYaw) && !isNaN(cameraPitch)) {
+        return getLookVec(cameraYaw, cameraPitch);
+    }
+    return getLookVec(api.player.getYaw(), api.player.getPitch());
+}
+
+function getLookVec(yaw, pitch) {
+    var yawRad = yaw * Math.PI / 180.0;
+    var pitchRad = pitch * Math.PI / 180.0;
+    var cosPitch = Math.cos(pitchRad);
+    return { x: -Math.sin(yawRad) * cosPitch, y: -Math.sin(pitchRad), z: Math.cos(yawRad) * cosPitch };
+}
+
+function isCursorInsideTargetAtY(targetPos, targetY) {
+    if (targetPos === null || targetPos[1] !== targetY) {
+        return false;
+    }
+    var cursorPoint = getCursorIntersectionAtY(targetY);
+    if (cursorPoint === null) {
+        return false;
+    }
+    var x = cursorPoint.x;
+    var z = cursorPoint.z;
+    return x >= targetPos[0] - 1.0E-6 && x <= targetPos[0] + 1.0 + 1.0E-6
+        && z >= targetPos[2] - 1.0E-6 && z <= targetPos[2] + 1.0 + 1.0E-6;
+}
+
+function isPlacementTargetAvailable(targetPos) {
+    return isBasePlacementTargetAvailable(targetPos) && isStrictOneBelowPlayer(targetPos);
+}
+
+function isStraightLaneTargetAvailable(targetPos, currentY, strictY, previousY, upwardY) {
+    if (!isBasePlacementTargetAvailable(targetPos)) {
+        return false;
+    }
+    var targetY = targetPos[1];
+    if (targetY === currentY || targetY === strictY) {
+        return true;
+    }
+    if (previousY !== -2147483648 && targetY === previousY) {
+        return true;
+    }
+    return upwardY !== -2147483648 && targetY === upwardY;
+}
+
+function isBasePlacementTargetAvailable(targetPos) {
+    return targetPos !== null
+        && isStraightTellyTarget(targetPos)
+        && !isRejectedTarget(targetPos)
+        && !doesPlacementIntersectPlayer(targetPos)
+        && isReplaceable(targetPos[0], targetPos[1], targetPos[2]);
+}
+
+function doesPlacementIntersectPlayer(placePos) {
+    if (placePos === null) {
+        return false;
+    }
+    if (isInsideAnyPlayerPositionCell(placePos)) {
+        return true;
+    }
+
+    var playerPos = pos();
+    var half = api.player.getWidth() / 2.0;
+    var height = api.player.getHeight();
+    if (boxIntersectsBlock(playerPos.x - half, playerPos.y, playerPos.z - half, playerPos.x + half, playerPos.y + height, playerPos.z + half, placePos)) {
+        return true;
+    }
+    if (isBlockPosInsideBounds(placePos, playerPos.x - half, playerPos.y, playerPos.z - half, playerPos.x + half, playerPos.y + height, playerPos.z + half)) {
+        return true;
+    }
+
+    if (!shouldUseHistoricalPlayerCollisionChecks(placePos)) {
+        return false;
+    }
+
+    var last = lastPos();
+    if (last.x !== playerPos.x || last.y !== playerPos.y || last.z !== playerPos.z) {
+        if (boxIntersectsBlock(last.x - half, last.y, last.z - half, last.x + half, last.y + height, last.z + half, placePos)) {
+            return true;
+        }
+        if (isBlockPosInsideBounds(placePos, last.x - half, last.y, last.z - half, last.x + half, last.y + height, last.z + half)) {
+            return true;
+        }
+    }
+    if (hasLastSentServerPos && (lastSentServerPosX !== playerPos.x || lastSentServerPosY !== playerPos.y || lastSentServerPosZ !== playerPos.z)) {
+        var sx = lastSentServerPosX;
+        var sy = lastSentServerPosY;
+        var sz = lastSentServerPosZ;
+        if (boxIntersectsBlock(sx - half, sy, sz - half, sx + half, sy + height, sz + half, placePos)) {
+            return true;
+        }
+        if (isBlockPosInsideBounds(placePos, sx - half, sy, sz - half, sx + half, sy + height, sz + half)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function boxIntersectsBlock(minX, minY, minZ, maxX, maxY, maxZ, targetPos) {
+    return maxX > targetPos[0] && minX < targetPos[0] + 1.0
+        && maxY > targetPos[1] && minY < targetPos[1] + 1.0
+        && maxZ > targetPos[2] && minZ < targetPos[2] + 1.0;
+}
+
+function isBlockPosInsideBounds(targetPos, minX, minY, minZ, maxX, maxY, maxZ) {
+    var bMinX = Math.floor(minX + 1.0E-4);
+    var bMaxX = Math.floor(maxX - 1.0E-4);
+    if (targetPos[0] < bMinX || targetPos[0] > bMaxX) {
+        return false;
+    }
+    var bMinZ = Math.floor(minZ + 1.0E-4);
+    var bMaxZ = Math.floor(maxZ - 1.0E-4);
+    if (targetPos[2] < bMinZ || targetPos[2] > bMaxZ) {
+        return false;
+    }
+    var bMinY = Math.floor(minY + 1.0E-4);
+    var bMaxY = Math.floor(maxY - 1.0E-4);
+    return targetPos[1] >= bMinY && targetPos[1] <= bMaxY;
+}
+
+function isInsideAnyPlayerPositionCell(placePos) {
+    var playerPos = pos();
+    if (isInsidePlayerPositionCell(placePos, playerPos.x, playerPos.y, playerPos.z)) {
+        return true;
+    }
+    if (!shouldUseHistoricalPlayerCollisionChecks(placePos)) {
+        return false;
+    }
+    var last = lastPos();
+    if (isInsidePlayerPositionCell(placePos, last.x, last.y, last.z)) {
+        return true;
+    }
+    return hasLastSentServerPos && isInsidePlayerPositionCell(placePos, lastSentServerPosX, lastSentServerPosY, lastSentServerPosZ);
+}
+
+function shouldUseHistoricalPlayerCollisionChecks(placePos) {
+    if (!api.player.isOnGround()) {
+        return false;
+    }
+    if (placePos === null) {
+        return true;
+    }
+    return placePos[1] > getCurrentBelowTargetY();
+}
+
+function isInsidePlayerPositionCell(placePos, x, y, z) {
+    var playerX = Math.floor(x);
+    var playerY = Math.floor(y);
+    var playerZ = Math.floor(z);
+    return placePos[0] === playerX && placePos[2] === playerZ && (placePos[1] === playerY || placePos[1] === playerY + 1);
+}
+
+function isNearPlayerColumn(targetPos) {
+    if (targetPos === null) {
+        return false;
+    }
+    var feet = getFeetBelowTargetAtY(targetPos[1]);
+    return Math.abs(targetPos[0] - feet[0]) <= 1 && Math.abs(targetPos[2] - feet[2]) <= 1;
+}
+
+function isStrictOneBelowPlayer(targetPos) {
+    if (targetPos === null) {
+        return false;
+    }
+    var targetY = targetPos[1];
+    var currentY = getCurrentBelowTargetY();
+    if (targetY === currentY) {
+        return true;
+    }
+    if (targetY === getStrictBelowTargetY()) {
+        return true;
+    }
+    var previousY = getPreviousBelowTargetY();
+    if (previousY !== -2147483648 && targetY === previousY) {
+        return true;
+    }
+    return isStraightAscendingContext() && targetY === currentY + 1;
+}
+
+function getStableBelowReferenceY() {
+    var playerPos = pos();
+    var referenceY = playerPos.y;
+    var playerMotion = motion();
+    if (!api.player.isOnGround() && playerMotion.y > -0.12 && playerMotion.y <= 0.0) {
+        referenceY = Math.max(referenceY, lastPos().y);
+    }
+    return referenceY;
+}
+
+function getStrictBelowTargetY() {
+    if (isDiagonalMovementContext()) {
+        return getCurrentBelowTargetY();
+    }
+    if (running && bridgeYLocked !== -2147483648) {
+        var lockPos = pos();
+        if (isReplaceable(Math.floor(lockPos.x), bridgeYLocked, Math.floor(lockPos.z))) {
+            return bridgeYLocked;
+        }
+    }
+    var projectedY = getStableBelowReferenceY();
+    var playerMotion = motion();
+    if (!api.player.isOnGround() && playerMotion.y < -0.12) {
+        projectedY = pos().y + playerMotion.y * 0.75;
+    }
+    return Math.floor(projectedY) - 1;
+}
+
+function getCurrentBelowTargetY() {
+    // 起手时锁定的那一层优先：跳跃会把 floor(y)-1 抬高，不锁就会一路往上堆楼梯
+    if (running && bridgeYLocked !== -2147483648) {
+        var playerPos = pos();
+        if (isReplaceable(Math.floor(playerPos.x), bridgeYLocked, Math.floor(playerPos.z))) {
+            return bridgeYLocked;
+        }
+    }
+    return Math.floor(getStableBelowReferenceY()) - 1;
+}
+
+function getPreviousBelowTargetY() {
+    return Math.floor(lastPos().y) - 1;
+}
+
+function isStraightAscendingContext() {
+    if (getConditionModeCheck() !== 1) {
+        return false;
+    }
+    var playerMotion = motion();
+    return playerMotion.y > 0.0 || pos().y > lastPos().y + 1.0E-4;
+}
+
+function isSupportAvailable(x, y, z) {
+    if (isInteractable(x, y, z)) {
+        return false;
+    }
+    return !isReplaceable(x, y, z);
+}
+
+function isRejectedTarget(targetPos) {
+    var rejectedAtTick = rejectedTargets[posKey(targetPos)];
+    if (rejectedAtTick === undefined) {
+        return false;
+    }
+    return currentClientTick - rejectedAtTick <= 4;
+}
+
+function markRejectedTarget(targetPos) {
+    if (targetPos === null) {
+        return;
+    }
+    rejectedTargets[posKey(targetPos)] = currentClientTick;
+}
+
+function pruneRejectedTargets() {
+    var keys = [];
+    var key;
+    for (key in rejectedTargets) {
+        if (rejectedTargets.hasOwnProperty(key)) {
+            keys.push(key);
+        }
+    }
+    var i;
+    for (i = 0; i < keys.length; i++) {
+        key = keys[i];
+        if (currentClientTick - rejectedTargets[key] > 4) {
+            delete rejectedTargets[key];
+            continue;
+        }
+        var parts = key.split(",");
+        if (!isReplaceable(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10))) {
+            delete rejectedTargets[key];
+        }
+    }
+}
+
+function rayCast(yaw, pitch) {
+    // 注意顺序：trace(yaw, pitch, range)
+    var hit = api.raycast.trace(yaw, pitch, reach());
+    if (hit === null || !hit.isBlock()) {
+        return null;
+    }
+    var face = faceFromName(hit.getSide());
+    if (face < 0 || face === 0) {
+        return null;
+    }
+    var supportPos = [hit.getBlockX(), hit.getBlockY(), hit.getBlockZ()];
+    var hitAbs = { x: hit.getX(), y: hit.getY(), z: hit.getZ() };
+    return [supportPos, face, hitAbs];
+}
+
+function getEyes() {
+    var playerPos = pos();
+    return { x: playerPos.x, y: playerPos.y + api.player.getEyeHeight(), z: playerPos.z };
+}
+
+function isInteractable(x, y, z) {
+    return api.block.isInteractable(x, y, z);
+}
+
+function reach() {
+    return api.player.isCreative() ? 5.0 : 4.5;
+}
+
+function placementTick() {
+    if (isRavenTimerActive()) {
+        return Math.floor(api.util.time() / 50);
+    }
+    return api.player.getTicksExisted();
+}
+
+function isRavenTimerActive() {
+    try {
+        return api.modules.isEnabled("Timer");
+    } catch (ignored) {
+        return false;
+    }
+}
+
+function candidatePitch(candidate) {
+    return clampFloat(candidate[0], -90.0, 90.0);
+}
+
+function candidateSupportPos(candidate) {
+    return candidate[1];
+}
+
+function candidateFace(candidate) {
+    return candidate[2];
+}
+
+function candidateHitVec(candidate) {
+    return candidate[3];
+}
+
+function candidatePlacedPos(candidate) {
+    return candidate[4];
+}
+
+function sanitizePitch(pitch, fallbackPitch) {
+    var safeFallback = clampFloat(isNaN(fallbackPitch) ? 0.0 : fallbackPitch, -90.0, 90.0);
+    if (isNaN(pitch) || !isFinite(pitch)) {
+        return safeFallback;
+    }
+    return clampFloat(pitch, -90.0, 90.0);
+}
+
+function clampFloat(value, min, max) {
+    return value < min ? min : (value > max ? max : value);
+}
+
+function wrapAngle(angle) {
+    var value = angle % 360.0;
+    if (value >= 180.0) { value -= 360.0; }
+    if (value < -180.0) { value += 360.0; }
+    return value;
+}
+
+function distSq(x1, y1, z1, x2, y2, z2) {
+    var dx = x1 - x2;
+    var dy = y1 - y2;
+    var dz = z1 - z2;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+function posEquals(a, b) {
+    return a !== null && b !== null && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
+function posKey(targetPos) {
+    return targetPos[0] + "," + targetPos[1] + "," + targetPos[2];
+}
+
+function opposite(face) {
+    if (face === 0) { return 1; }
+    if (face === 1) { return 0; }
+    if (face === 2) { return 3; }
+    if (face === 3) { return 2; }
+    if (face === 4) { return 5; }
+    return 4;
+}
+
+function rotateY(face) {
+    if (face === 2) { return 5; }
+    if (face === 5) { return 3; }
+    if (face === 3) { return 4; }
+    if (face === 4) { return 2; }
+    return face;
+}
+
+function rotateYCCW(face) {
+    if (face === 2) { return 4; }
+    if (face === 4) { return 3; }
+    if (face === 3) { return 5; }
+    if (face === 5) { return 2; }
+    return face;
+}
+
+function facingFromYaw(yaw) {
+    var index = Math.floor(yaw / 90.0 + 0.5) & 3;
+    if (index === 0) { return 3; }
+    if (index === 1) { return 4; }
+    if (index === 2) { return 2; }
+    return 5;
+}
+
+function faceName(face) {
+    if (face === 0) { return "DOWN"; }
+    if (face === 1) { return "UP"; }
+    if (face === 2) { return "NORTH"; }
+    if (face === 3) { return "SOUTH"; }
+    if (face === 4) { return "WEST"; }
+    return "EAST";
+}
+
+function isReplaceable(x, y, z) {
+    return isReplaceableName(blockNameAt(x, y, z), false);
+}
+
+function isReplaceableName(name, airOnly) {
+    if (airOnly) {
+        return name === "air";
+    }
+    var i;
+    for (i = 0; i < REPLACEABLE_BLOCKS.length; i++) {
+        if (name === REPLACEABLE_BLOCKS[i]) {
+            return true;
+        }
+    }
+    for (i = 0; i < EXPERIMENTAL_REPLACEABLE_BLOCKS.length; i++) {
+        if (name === EXPERIMENTAL_REPLACEABLE_BLOCKS[i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  使用键 / 收尾 / 钩子接线
+// ═══════════════════════════════════════════════════════════════════════════
+
+function applyUse(pressed) {
+    if (pressed && !autoPlaceDebugActive) {
+        printStatus("&aAutoPlace activated");
+    }
+    autoPlaceDebugActive = pressed;
+    tellyAutoPlaceWindow = pressed;
+    api.key.press("use", pressed);
+}
+
+function restorePhysicalUse() {
+    tellyAutoPlaceWindow = false;
+    autoPlaceDebugActive = false;
+    api.key.press("use", api.key.isMouseDown(1));
+}
+
+function releaseMovementKeys() {
+    restorePhysicalKey("forward");
+    restorePhysicalKey("back");
+    restorePhysicalKey("left");
+    restorePhysicalKey("right");
+    restorePhysicalKey("jump");
+    restorePhysicalKey("sneak");
+    restorePhysicalKey("sprint");
+}
+
+function restorePhysicalKey(key) {
+    var code = api.key.getBindCode(key);
+    api.key.press(key, code >= 0 && api.key.isKeyDown(code));
+}
+
+// Spire 没有 onMouse，用左右键钩子把状态转过去
+function onLeftClick(event) {
+    onMouse(0, true);
+}
+
+function onRightClick(event) {
+    onMouse(1, true);
 }
 </p>
   </div>
